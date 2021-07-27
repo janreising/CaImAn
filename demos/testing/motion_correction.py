@@ -272,5 +272,23 @@ def run_motion_correction(path, loc):
 
 
 if __name__ == "__main__":
-    run_motion_correction(path="/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice3/1-40X-loc1.h5",
-                          loc="data/ast")
+
+    input_file = None
+    location = None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "i::l", ["ifolder=", "loc="])
+    except getopt.GetoptError:
+        print("calpack.py -i <input_file> - <loc>")
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-i", "--ifolder"):
+            input_file = arg
+
+        if opt in ("-l", "--loc"):
+            location = arg
+
+    assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
+    assert location is not None
+
+    run_motion_correction(path=input_file, loc=location)
