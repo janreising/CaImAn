@@ -292,7 +292,6 @@ def run_motion_correction(path, loc):
     ###################
     # delete temp files
     for delf in get_mmaps(f_names):
-        print("DELF:", delf)
         os.remove(delf)
 
 
