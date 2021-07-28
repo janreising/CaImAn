@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 import os
 
-path = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice1/"
+path = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
 
 fnames = path + "2-40X-loc1.h5"  # file path to movie file (will download if not present)
 
@@ -127,7 +127,7 @@ def save_split_tiff(file, loc, out, skip=10, downsize=1, subindices=None):
 
 # %%%%%%%%%%%%
 
-# file_name = path + "1-40X-loc1 (copy_rig__d1_1200_d2_1200_d3_1_order_F_frames_200_.mmap"
+# file_name = path + "1-40X-loc_rig__d1_1200_d2_1200_d3_1_order_F_frames_200_.mmap"
 # print(file_name)
 #
 # arr = np.memmap(file_name, shape=(200, 1200, 1200), dtype=np.float32)
@@ -207,47 +207,3 @@ def save_split_tiff(file, loc, out, skip=10, downsize=1, subindices=None):
 #     base+"4-2-40X-loc1_4.h5",
 # ]
 
-base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice1/"
-paths = [
-    base+"1-40X-loc1.h5"
-]
-
-tasks = []
-dims = []
-if len(paths) > 1:
-
-    dir_files = os.listdir(base)
-
-    for p in paths:
-        start = p.split(os.sep)[-1].split("_")[0]
-
-        for df in dir_files:
-            name = df.split(os.sep)[-1]
-
-            # print(start, name, name.startswith(start),  name.endswith(".mmap"))
-
-            if name.startswith(start) and name.endswith(".mmap"):
-                tasks.append(base+df)
-
-                dsplit = df.split("_")
-                print(dsplit)
-                dims.append([int(dsplit[-2]), int(dsplit[5]), int(dsplit[7])])
-
-                continue
-
-else:
-    start = paths[0].split(os.sep)[-1].split(".")[0][:-1]
-
-    for df in os.listdir(base):
-        name = df.split(os.sep)[-1]
-
-        if name.startswith(start) and name.endswith(".mmap"):
-            tasks.append(base+df)
-
-            dsplit = df.split("_")
-            print(dsplit)
-            dims.append([int(dsplit[-2]), int(dsplit[4]), int(dsplit[6])])
-
-            continue
-
-print(dims)
