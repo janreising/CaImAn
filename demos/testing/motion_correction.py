@@ -299,6 +299,6 @@ if __name__ == "__main__":
     assert location is not None
 
     print("InputFile: ", input_file)
-    print("Location: ", location)
+    print("Location: ", repr(location))
 
     run_motion_correction(path=input_file, loc=location)
