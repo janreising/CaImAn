@@ -4,6 +4,7 @@ import h5py as h5
 import tifffile as tf
 from tqdm import tqdm
 import cv2
+import getopt
 
 try:
     cv2.setNumThreads(0)
@@ -43,6 +44,8 @@ def convert_xyz_to_zxy(path, loc0):
     file = h5.File(path, "r")
     for loc in file["data/"].keys():
 
+        print(f"Changing {loc}")
+
         data = file["data/"+loc]
         X, Y, Z = data.shape
         cx, cy, cz = data.chunks
@@ -80,9 +83,17 @@ def split_h5_file(file_path, loc, split_file_size=2000):
     names = []
     splits = int(os.stat(file_path).st_size / (split_file_size * 1024 * 1024))
     split_size = int(Z/splits)
-    for start in tqdm(range(0, Z, split_size), position=0, leave=True):
 
-        stop = min(start+split_size, Z)
+    iterator = []
+    for start in list(range(0, Z, split_size)):
+        iterator.append([start, min(start+split_size, Z)])
+
+    if iterator[-1][1] - iterator[-1][0] < 100:
+        iterator[-2][1] = Z
+        iterator = iterator[:-1]
+
+    print(f"iterator: {iterator}")
+    for start, stop in tqdm(iterator, position=0, leave=True):
 
         name_out = f'{base}{c}-{name}_{c}.h5'
         if not os.path.isfile(name):
@@ -152,7 +163,13 @@ def save_memmap_to_h5(fnames, loc):
     _, X, Y = dims[0]
     shape = (Z, X, Y)
 
-    output = h5.File(f"{base}{name}_out.h5", "r+")
+    # TODO ouput name is incorrect; includes x-...._x.h5
+    output = f"{base}{name}_out.h5"
+    if os.path.isfile(output):
+        output = h5.File(output, "r+")
+    else:
+        output = h5.File(output, "w")
+
     loc_out = "mc/"+loc.split("/")[-1]
     data = output.create_dataset(loc_out, shape=shape, dtype="i2",
                                  compression="gzip", chunks=(100, 100, 100), shuffle=True)
@@ -276,7 +293,7 @@ if __name__ == "__main__":
     input_file = None
     location = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i::l", ["ifolder=", "loc="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "loc="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file> - <loc>")
         sys.exit(2)
@@ -290,5 +307,8 @@ if __name__ == "__main__":
 
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
     assert location is not None
+
+    print(f"File: {input_file}")
+    print(f"Loc: {location}")
 
     run_motion_correction(path=input_file, loc=location)
