@@ -230,6 +230,7 @@ def run_motion_correction(path, loc):
     # File preparation
     print(f"Processing: {path}")
     print(f"Location: {loc}")
+    assert loc in h5.File(path), "Location doesn't exist file. -> {}".format(h5.File(path).keys())
 
     # check array shape; convert if necessary
     convert_xyz_to_zxy(path, loc)
