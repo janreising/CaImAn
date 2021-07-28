@@ -278,13 +278,17 @@ class CMotionCorrect():
             for start, stop in self.dtqdm(iterator):
 
                 name_out = f'{self.base}{c}-{self.name}0.h5'
-                if not os.path.isfile(name_out):
-                    chunk = data[start:stop, :, :]
 
-                    temp = h5.File(name_out, "w")
-                    chunk_drive = temp.create_dataset("/data/ast", shape=chunk.shape, dtype=data.dtype)
-                    chunk_drive[:, :, :] = chunk
-                    temp.create_dataset("/proc/dummy", shape=(1, 1, 1), dtype=data.dtype)
+                if os.path.isfile(name_out):
+                    os.remove(name_out)
+
+
+                chunk = data[start:stop, :, :]
+
+                temp = h5.File(name_out, "w")
+                chunk_drive = temp.create_dataset("/data/ast", shape=chunk.shape, dtype=data.dtype)
+                chunk_drive[:, :, :] = chunk
+                temp.create_dataset("/proc/dummy", shape=(1, 1, 1), dtype=data.dtype)
 
                 c += 1
                 self.files.append(name_out)
@@ -322,7 +326,7 @@ class CMotionCorrect():
 
         if len(self.files) > 1:
 
-            for p in self.file:
+            for p in self.files:
                 start = p.replace(self.base, "").replace(".h5", "")
 
                 for df in dir_files:
