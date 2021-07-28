@@ -6,10 +6,6 @@ import numpy as np
 import h5py as h5
 import tifffile as tf
 from tqdm import tqdm
-<<<<<<< HEAD
-import cv2
-=======
->>>>>>> a1174560ef8b9984db0e1ba781837bc3004328a6
 import getopt
 
 import cv2
