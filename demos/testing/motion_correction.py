@@ -55,7 +55,7 @@ def convert_xyz_to_zxy(path, loc0):
         cx, cy, cz = data.chunks
 
         new_ = h5.File(new_path, "a")
-        arr = new_.create_dataset(loc, dtype="i2", shape=(Z, X, Y),
+        arr = new_.create_dataset("data/"+loc, dtype="i2", shape=(Z, X, Y),
                                   compression="gzip", chunks=(cx, cy, cz), shuffle=True)
 
         if "dummy" not in new_:
@@ -189,7 +189,7 @@ def save_memmap_to_h5(fnames, loc):
     return f"{base}{name}_out.h5", loc_out
 
 
-def save_split_tiff(file, loc, skip=None, downsize=0.5, subindices=None):
+def save_split_tiff(file, loc, skip=None, downsize=0.5, subindices=None, progress=False):
 
     from skimage.transform import resize
 
@@ -212,7 +212,10 @@ def save_split_tiff(file, loc, skip=None, downsize=0.5, subindices=None):
 
     tarr = np.zeros((z, x, y))
     c=0
-    for i in tqdm(range(z0, Z, skip)):
+    iterator = range(z0, Z, skip)[:-1]
+    if progress:
+        iterator = tqdm(iterator)
+    for i in iterator:
         img = arr[i, :, :]
 
         if downsize != 1:
@@ -283,16 +286,21 @@ def run_motion_correction(path, loc):
 
     ####################
     # Convert mmap to h5
+    print("Converting mmap to h5 ...")
     path_out, loc_out = save_memmap_to_h5(f_names, loc=loc)
+    print("Saved as: ", path_out)
 
     #############
     # Save sample
+    print("Saving sample ...")
     save_split_tiff(path_out, loc_out)
 
     ###################
     # delete temp files
-    for delf in get_mmaps(f_names):
-        os.remove(delf)
+    files, dims = get_mmaps(f_names)
+    print("To delete: {}".format(files))
+    for temp_file in files:
+        os.remove(temp_file)
 
 
 if __name__ == "__main__":
