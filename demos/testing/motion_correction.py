@@ -1,11 +1,18 @@
 import os, sys, psutil, shutil
+# print(os.environ["PYTHONPATH"])
+# print(os.environ["VIRTUAL_ENV"])
+# sys.path.append("/home/j/janrei/Private/CaImAn/")
 import numpy as np
 import h5py as h5
 import tifffile as tf
 from tqdm import tqdm
+<<<<<<< HEAD
 import cv2
+=======
+>>>>>>> a1174560ef8b9984db0e1ba781837bc3004328a6
 import getopt
 
+import cv2
 try:
     cv2.setNumThreads(0)
 except:
@@ -14,7 +21,6 @@ except:
 import caiman as cm
 from caiman.motion_correction import MotionCorrect
 from caiman.source_extraction.volpy.volparams import volparams
-
 
 def deconstruct_path(path):
 
@@ -34,6 +40,8 @@ def convert_xyz_to_zxy(path, loc0):
     old_path = f"{base}{name}-xyz.h5"
     new_path = f"{base}{name}-zxy.h5"
 
+    print(f"Path: {path}")
+    print(f"loc: {loc0}")
     data = h5.File(path, "r")[loc0]
 
     d1, d2, d3 = data.shape
@@ -224,6 +232,8 @@ def run_motion_correction(path, loc):
 
     ##################
     # File preparation
+    print(f"Processing: {path}")
+    print(f"Location: {loc}")
 
     # check array shape; convert if necessary
     convert_xyz_to_zxy(path, loc)
@@ -308,7 +318,7 @@ if __name__ == "__main__":
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
     assert location is not None
 
-    print(f"File: {input_file}")
-    print(f"Loc: {location}")
+    print("InputFile: ", input_file)
+    print("Location: ", repr(location))
 
     run_motion_correction(path=input_file, loc=location)
