@@ -1,10 +1,14 @@
 import os, sys, psutil, shutil
+# print(os.environ["PYTHONPATH"])
+# print(os.environ["VIRTUAL_ENV"])
+# sys.path.append("/home/j/janrei/Private/CaImAn/")
 import numpy as np
 import h5py as h5
 import tifffile as tf
 from tqdm import tqdm
-import cv2
+import getopt
 
+import cv2
 try:
     cv2.setNumThreads(0)
 except:
@@ -13,7 +17,6 @@ except:
 import caiman as cm
 from caiman.motion_correction import MotionCorrect
 from caiman.source_extraction.volpy.volparams import volparams
-
 
 def deconstruct_path(path):
 
@@ -33,6 +36,8 @@ def convert_xyz_to_zxy(path, loc0):
     old_path = f"{base}{name}-xyz.h5"
     new_path = f"{base}{name}-zxy.h5"
 
+    print(f"Path: {path}")
+    print(f"loc: {loc0}")
     data = h5.File(path, "r")[loc0]
 
     d1, d2, d3 = data.shape
@@ -207,6 +212,8 @@ def run_motion_correction(path, loc):
 
     ##################
     # File preparation
+    print(f"Processing: {path}")
+    print(f"Location: {loc}")
 
     # check array shape; convert if necessary
     convert_xyz_to_zxy(path, loc)
@@ -276,7 +283,7 @@ if __name__ == "__main__":
     input_file = None
     location = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i::l", ["ifolder=", "loc="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "loc="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file> - <loc>")
         sys.exit(2)
@@ -290,5 +297,8 @@ if __name__ == "__main__":
 
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
     assert location is not None
+
+    print("InputFile: ", input_file)
+    print("Location: ", location)
 
     run_motion_correction(path=input_file, loc=location)
