@@ -198,12 +198,23 @@ def save_split_tiff(file, loc, out, skip=10, downsize=1, subindices=None):
 
 
 ## delte
-# base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice1/temp/"
+# import re
+# base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
 # paths = [
-#     base+"0-2-40X-loc1_0.h5",
-#     base+"1-2-40X-loc1_1.h5",
-#     base+"2-2-40X-loc1_2.h5",
-#     base+"3-2-40X-loc1_3.h5",
-#     base+"4-2-40X-loc1_4.h5",
+#     base+"0-2-40X-loc1-postbleach0.h5",
+#     base+"1-2-40X-loc1-postbleach0.h5",
+#     base+"2-2-40X-loc1-postbleach0.h5",
+#     base+"3-2-40X-loc1-postbleach0.h5",
+#     base+"4-2-40X-loc1-postbleach0.h5",
 # ]
+#
+# def mmap_exists(p):
+#     p = p.replace(base, "").replace(".h5", "")[:-2]
+#
+#     for fi in os.listdir(base):
+#         if fi.endswith(".mmap") and (p in fi):
+#             return fi
+#
+#     return None
+
 

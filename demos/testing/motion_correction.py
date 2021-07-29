@@ -49,7 +49,7 @@ class CMotionCorrect():
         self.dimensions = []
         self.mmaps = []
 
-    def run_motion_correction(self, ram_size_multiplier=5):
+    def run_motion_correction(self, ram_size_multiplier=5, locs=None):
 
         ##################
         # File preparation
@@ -75,8 +75,12 @@ class CMotionCorrect():
 
         ##################
         # Process channels
-        with h5.File(self.path, "r") as file:
-            locs = [f"{key}" for key in list(file["data/"].keys())]
+        if locs is None:
+            with h5.File(self.path, "r") as file:
+                locs = [f"{key}" for key in list(file["data/"].keys())]
+
+        if type(locs) == str:
+            locs = [locs]
 
         for loc in locs:
 
@@ -97,52 +101,58 @@ class CMotionCorrect():
 
             # split files if necessary
             if split_files:
-                self.split_h5_file(f"data/{loc}")
+                self.split_h5_file(loc)
             else:
 
                 with h5.File(self.path, "r") as file:
                     self.dimensions.append(file[f"data/{loc}"].shape)
                 self.files.append(self.path)
 
+            # check if mmap already exists
+            files_to_process = [file for file in self.files if self.mmap_exists(file) is None]
 
-            # check if exists
-            # TODO check if exists. Maybe complicated because the file names changes; code might have crashed previously
-            # TODO actually impossible because different channels will use the same name for mmap files
+            if len(files_to_process) > 0:
+                # Parameters
+                opts_dict = {
+                    'fnames': files_to_process,
+                    'fr': self.fr,  # sample rate of the movie
+                    'pw_rigid': self.pw_rigid,  # flag for pw-rigid motion correction
+                    'max_shifts': self.max_shifts,  # 20, 20                             # maximum allowed rigid shift
+                    'gSig_filt': self.gSig_filt,
+                    # 10,10   # size of filter, in general gSig (see below),  # change if alg doesnt work
+                    'strides': self.strides,  # start a new patch for pw-rigid motion correction every x pixels
+                    'overlaps': self.overlaps,  # overlap between pathes (size of patch strides+overlaps)
+                    'max_deviation_rigid': self.max_deviation_rigid,  # maximum deviation allowed for patch with respect to rigid shifts
+                    'border_nan': self.border_nan,
+                }
 
-            # Parameters
-            opts_dict = {
-                'fnames': self.files,
-                'fr': self.fr,  # sample rate of the movie
-                'pw_rigid': self.pw_rigid,  # flag for pw-rigid motion correction
-                'max_shifts': self.max_shifts,  # 20, 20                             # maximum allowed rigid shift
-                'gSig_filt': self.gSig_filt,
-                # 10,10   # size of filter, in general gSig (see below),  # change if alg doesnt work
-                'strides': self.strides,  # start a new patch for pw-rigid motion correction every x pixels
-                'overlaps': self.overlaps,  # overlap between pathes (size of patch strides+overlaps)
-                'max_deviation_rigid': self.max_deviation_rigid,  # maximum deviation allowed for patch with respect to rigid shifts
-                'border_nan': self.border_nan,
-            }
+                opts = volparams(params_dict=opts_dict)
 
-            opts = volparams(params_dict=opts_dict)
+                ###################
+                # Motion Correction
 
-            ###################
-            # Motion Correction
+                # start cluster for parallel processing
+                n_processes = None
+                if self.on_server:
+                    n_processes = 7
 
-            # start cluster for parallel processing
-            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7, single_thread=False)
+                c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
+                                                                 single_thread=False)
 
-            # Run correction
-            if self.verbose > 0:
-                print("Starting motion correction ...")
-            mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"data/{loc}", **opts.get_group('motion'))
-            mc.motion_correct(save_movie=True)
+                # Run correction
+                if self.verbose > 0:
+                    print("Starting motion correction ... [{}]".format(f"data/{loc}"))
+                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"data/{loc}", **opts.get_group('motion'))
+                mc.motion_correct(save_movie=True)
 
-            # stop cluster
-            cm.stop_server(dview=dview)
+                # stop cluster
+                cm.stop_server(dview=dview)
 
             ####################
             # Convert mmap to h5
-            self.get_mmaps()
+            self.mmaps = [self.base + self.mmap_exists(file) for file in self.files]
+            assert len(self.mmaps) == len(self.files), "Missing .mmap files"
+
             print("Converting mmap to h5 ...")
             self.save_memmap_to_h5(loc=f"mc/{loc}")
 
@@ -255,7 +265,7 @@ class CMotionCorrect():
         # Load file
         with h5.File(self.path, "r") as file:
 
-            data = file[loc]
+            data = file[f"data/{loc}"]
 
             Z, X, Y = data.shape
 
@@ -277,22 +287,25 @@ class CMotionCorrect():
             c = 0
             for start, stop in self.dtqdm(iterator):
 
-                name_out = f'{self.base}{c}-{self.name}0.h5'
+                name_out = f'{self.base}{c}-{loc}-{self.name}0.h5'
 
-                if os.path.isfile(name_out):
-                    os.remove(name_out)
+                if not os.path.isfile(name_out):
 
+                    chunk = data[start:stop, :, :]
 
-                chunk = data[start:stop, :, :]
+                    with h5.File(name_out, "w") as temp:
+                        chunk_drive = temp.create_dataset(f"data/{loc}", shape=chunk.shape, dtype=data.dtype)
+                        chunk_drive[:, :, :] = chunk
+                        temp.create_dataset("proc/dummy", shape=(1, 1, 1), dtype=data.dtype)
+                        shape = chunk.shape
 
-                temp = h5.File(name_out, "w")
-                chunk_drive = temp.create_dataset("/data/ast", shape=chunk.shape, dtype=data.dtype)
-                chunk_drive[:, :, :] = chunk
-                temp.create_dataset("/proc/dummy", shape=(1, 1, 1), dtype=data.dtype)
+                else:
+                    with h5.File(name_out, "r") as temp:
+                        shape = temp[f"data/{loc}"].shape
 
                 c += 1
                 self.files.append(name_out)
-                self.dimensions.append(chunk_drive.shape)
+                self.dimensions.append(shape)
 
         return True
 
@@ -310,13 +323,16 @@ class CMotionCorrect():
                                        compression="gzip", chunks=(100, 100, 100), shuffle=True)
 
             # fill array
-            c = 0
-            mm = np.zeros(shape)
-            for mmap in self.dtqdm(self.mmaps):
-                mm = np.memmap(mmap, shape=shape, dtype=np.float32)
-                data[c*Z:(c+1)*Z, :, :] = mm
+            start, stop = (0, 0)
+            print(self.mmaps)
+            print(self.dimensions)
+            for mmap, dim in self.dtqdm(zip(self.mmaps, self.dimensions)):
+                _z, _x, _y = dim
+                stop = start + _z
+                mm = np.memmap(mmap, shape=dim, dtype=np.float32)
+                data[start:stop, :, :] = mm
 
-                c += 1
+                start = stop
 
         return True
 
@@ -327,7 +343,7 @@ class CMotionCorrect():
         if len(self.files) > 1:
 
             for p in self.files:
-                start = p.replace(self.base, "").replace(".h5", "")
+                start = p.replace(self.base, "").replace(".h5", "")[-2]
 
                 for df in dir_files:
                     temp = df.split(os.sep)[-1]
@@ -343,6 +359,16 @@ class CMotionCorrect():
                 if temp.startswith(self.name[:-2]) and temp.endswith(".mmap"):
                     self.mmaps.append(f"{self.base}{df}")
                     continue
+
+    def mmap_exists(self, spath):
+
+        spath = spath.replace(self.base, "").replace(".h5", "")[:-2]
+
+        for fi in os.listdir(self.base):
+            if fi.endswith(".mmap") and (spath in fi):
+                return fi
+
+        return None
 
     def save_tiff(self, loc, skip=None, downsize=0.5, subindices=None):
 
