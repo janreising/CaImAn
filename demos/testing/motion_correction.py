@@ -19,6 +19,9 @@ import caiman as cm
 from caiman.motion_correction import MotionCorrect
 from caiman.source_extraction.volpy.volparams import volparams
 
+import warnings
+warnings.filterwarnings("ignore")
+
 class CMotionCorrect():
 
     def __init__(self, path,
@@ -229,12 +232,15 @@ class CMotionCorrect():
                 cx, cy, cz = xyz.chunks
 
                 # create new dataset
+                if f"zxy/{loc}" in file:
+                    del file[f"zxy/{loc}"]
+
                 zxy = file.create_dataset(f"zxy/{loc}", dtype="i2", shape=(Z, X, Y),
                                           compression="gzip", chunks=(cx, cy, cz), shuffle=True)
 
                 # necessary for downstream processing
-                if "dummy" not in zxy:
-                    _ = zxy.create_dataset("dummy", dtype="i2", shape=(1, 1, 1))
+                if "dummy" not in file:
+                    _ = file.create_dataset("dummy", dtype="i2", shape=(1, 1, 1))
 
                 # transform and copy data to new shape
                 for start in self.dtqdm(range(0, Z, cz)):
@@ -249,7 +255,7 @@ class CMotionCorrect():
 
         # clean up original data
         if delete_original:
-            with h5.File(self.path, "w") as file:
+            with h5.File(self.path, "a") as file:
 
                 # remove
                 del file["data/"]

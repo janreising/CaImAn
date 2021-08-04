@@ -1,6 +1,7 @@
 import os, sys
 import h5py as h5
 import numpy as np
+import getopt
 
 import caiman as cm
 from caiman.source_extraction.cnmf import params as params
@@ -8,6 +9,9 @@ from caiman.utils.visualization import inspect_correlation_pnr
 from caiman.source_extraction import cnmf
 from caiman.source_extraction.cnmf.initialization import downscale
 import tifffile as tf
+
+import warnings
+warnings.filterwarnings("ignore")
 
 def main(path, loc):
 
@@ -21,7 +25,7 @@ def main(path, loc):
         pass
 
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
-                                                     n_processes=7,  # TODO change to None
+                                                     n_processes=None,
                                                      single_thread=False)
 
     # load images
@@ -123,19 +127,20 @@ def main(path, loc):
         data = file.create_dataset(loc.replace("mc", "cnmfe"), dtype="i2", shape=rec.shape)
         data[:, :, :] = rec
 
-    tf.imsave(path+".tiff", rec)
+    tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
 
     # save dFF
     rec = cm.movie(rec)
 
     mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-    tf.imsave(path+".dFF.tiff", mov_dff1)
+    tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
 
     with h5.File(path, "a") as file:
         data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
         data[:, :, :] = mov_dff1
 
     # stop cluster
+    dview.terminate()
     cm.stop_server()
 
 
@@ -173,11 +178,24 @@ def get_reconstructed(estimates, imgs, include_bck=True):
 
 if __name__ == "__main__":
 
-    base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
-    name = "1-40X-loc1.h5"
+    # base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
+    # name = "1-40X-loc1.h5"
 
-    if base[-1] != os.sep:
-        base += os.sep
+    input_file = None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "i:", ["ifolder="])
+    except getopt.GetoptError:
+        print("calpack.py -i <input_file>")
+        sys.exit(2)
 
-    main(path=base+name, loc="mc/ast")
+    for opt, arg in opts:
+        if opt in ("-i", "--input_file"):
+            input_file = arg
+
+    assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
+
+    print("InputFile: ", input_file)
+
+    main(path=input_file, loc="mc/ast")
+    main(path=input_file, loc="mc/neu")
 
