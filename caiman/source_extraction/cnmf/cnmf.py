@@ -655,7 +655,6 @@ class CNMF(object):
         self.estimates.normalize_components()
         return self
 
-
     def save(self, filename):
         '''save object in hdf5 file format
 

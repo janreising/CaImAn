@@ -414,7 +414,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     for opt, arg in opts:
-        if opt in ("-i", "--ifolder"):
+        if opt in ("-i", "--input_file"):
             input_file = arg
 
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)

@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 import os
 
-path = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
+path = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice1/"
 
 fnames = path + "2-40X-loc1.h5"  # file path to movie file (will download if not present)
 
@@ -127,17 +127,20 @@ def save_split_tiff(file, loc, out, skip=10, downsize=1, subindices=None):
 
 # %%%%%%%%%%%%
 
-# file_name = path + "1-40X-loc_rig__d1_1200_d2_1200_d3_1_order_F_frames_200_.mmap"
-# print(file_name)
-#
-# arr = np.memmap(file_name, shape=(200, 1200, 1200), dtype=np.float32)
-# print(arr.shape)
-#
-# # arr = np.swapaxes(arr, 0, 2)
-# arr = np.swapaxes(arr, 1, 2)
-#
-# out = path + "delete.tiff"
-# tf.imsave(out, data=arr)
+file_name = path + "memmap__d1_1200_d2_1200_d3_1_order_C_frames_200_.mmap"
+print(file_name)
+
+arr = np.memmap(file_name, shape=(200, 1200, 1200), dtype=np.float32)
+print(arr.shape)
+
+#Yr, dims, T = cm.load_memmap(fname_new)
+    # images = Yr.T.reshape((T,) + dims, order='F')
+
+# arr = np.swapaxes(arr, 0, 2)
+arr = np.swapaxes(arr, 1, 2)
+
+out = path + "delete.tiff"
+tf.imsave(out, data=arr)
 
 # %%%%%%%%%%%%
 
