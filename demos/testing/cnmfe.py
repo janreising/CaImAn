@@ -13,7 +13,7 @@ import tifffile as tf
 import warnings
 warnings.filterwarnings("ignore")
 
-def main(path, loc):
+def main(path, loc, save_tiff=False):
 
     print("Path: ", path)
     print("Loc: ", loc)
@@ -127,13 +127,15 @@ def main(path, loc):
         data = file.create_dataset(loc.replace("mc", "cnmfe"), dtype="i2", shape=rec.shape)
         data[:, :, :] = rec
 
-    tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
+    if save_tiff:
+        tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
 
     # save dFF
     rec = cm.movie(rec)
 
     mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-    tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
+    if save_tiff:
+        tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
 
     with h5.File(path, "a") as file:
         data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
@@ -196,6 +198,6 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    main(path=input_file, loc="mc/ast")
-    main(path=input_file, loc="mc/neu")
+    main(path=input_file, loc="mc/ast", save_tiff=False)
+    main(path=input_file, loc="mc/neu", save_tiff=False)
 
