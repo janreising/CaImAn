@@ -301,21 +301,21 @@ class PreProcessor():
                 data = file.create_dataset(f"cnmfe/{loc}", dtype="i2", shape=rec.shape)
                 data[:, :, :] = rec
 
-            if self.verbose > 0:
-                print("Calculating dFF ...")
-
-            mov = cm.movie(rec)
-            mov_dff1, _ = (mov + abs(np.min(mov)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-
-            if self.verbose > 0:
-                print("Saving dFF ...")
-
-            with h5.File(self.path, "a") as file:
-                data = file.create_dataset(f"dff/{loc}", dtype="i2", shape=rec.shape)
-                data[:, :, :] = mov_dff1
+            # if self.verbose > 0:
+            #     print("Calculating dFF ...")
+            #
+            # mov = cm.movie(rec)
+            # mov_dff1, _ = (mov + abs(np.min(mov)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
+            #
+            # if self.verbose > 0:
+            #     print("Saving dFF ...")
+            #
+            # with h5.File(self.path, "a") as file:
+            #     data = file.create_dataset(f"dff/{loc}", dtype="i2", shape=rec.shape)
+            #     data[:, :, :] = mov_dff1
 
             # stop cluster
-            # dview.terminate()
+            dview.terminate()
             cm.stop_server(dview=dview)
 
             #############
@@ -626,7 +626,7 @@ if __name__ == "__main__":
     print("InputFile: ", input_file)
 
     mc = PreProcessor(path=input_file, verbose=3, delete_temp_files=True, on_server=False)
-    mc.run_preprocess()
+    mc.run_preprocess(ram_size_multiplier=100)
 
 
 
