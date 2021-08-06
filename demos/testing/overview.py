@@ -8,7 +8,10 @@ def main(path):
         for key in list(file.keys()):
             print(key, type(file[key]))
 
+            if type(file[key] == 'h5py._hl.group.Group'):
 
+                for key2 in file[key].keys():
+                    print(file[f"{key}/{key2}"])
 
 
 if __name__ == "__main__":
