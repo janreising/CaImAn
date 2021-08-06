@@ -102,6 +102,9 @@ class PreProcessor():
 
             if not skip_mc:
 
+                if self.verbose > 0:
+                    print("Starting motion correction ...")
+
                 # decide whether to split files dependent on available RAM
                 # file_size = os.stat(self.path).st_size
                 with h5.File(self.path, "r") as file:
