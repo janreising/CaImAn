@@ -632,7 +632,7 @@ if __name__ == "__main__":
     print("InputFile: ", input_file)
 
     mc = PreProcessor(path=input_file, verbose=3, delete_temp_files=True, on_server=False)
-    mc.run_preprocess(ram_size_multiplier=100)
+    mc.run_preprocess(ram_size_multiplier=7)
 
 
 
