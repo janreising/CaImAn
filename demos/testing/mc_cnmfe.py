@@ -88,6 +88,7 @@ class PreProcessor():
             # start cluster for parallel processing
             c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,
                                                              single_thread=False)
+            print("Cluster started!")
 
             ###################
             # MOTION CORRECTION
