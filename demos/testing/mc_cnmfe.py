@@ -85,9 +85,13 @@ class PreProcessor():
             self.dimensions = []
             self.mmaps = []
 
+            if self.verbose > 0:
+                print("Starting cluster ...")
             # start cluster for parallel processing
             c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,
                                                              single_thread=False)
+            if self.verbose > 0:
+                print("Cluster started!")
 
             ###################
             # MOTION CORRECTION
