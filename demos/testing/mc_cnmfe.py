@@ -56,8 +56,7 @@ class PreProcessor():
         self.dimensions = []
         self.mmaps = []
 
-    def run_preprocess(self, ram_size_multiplier=7, locs=None, save_sample=False,
-                       correlation_skip=5):
+    def run_preprocess(self, ram_size_multiplier=7, locs=None, save_sample=False):
 
         ##################
         # File preparation
@@ -167,16 +166,16 @@ class PreProcessor():
                     print("Creating Memory Map ...")
 
                 # TODO this part should probably be:
-                # fname_new = cm.save_memmap_join(fname_parts, base_name=base_name, dview=dview, n_chunks=n_chunks)
+                fname_new = cm.save_memmap_join(self.mmaps, base_name=f"mmap-{loc}_", dview=dview)
 
-                fname_mc = mc.fname_tot_els if self.pw_rigid else mc.fname_tot_rig
-                if self.pw_rigid:
-                    bord_px = np.ceil(np.maximum(np.max(np.abs(mc.x_shifts_els)),
-                                                 np.max(np.abs(mc.y_shifts_els)))).astype(np.int)
-                else:
-                    bord_px = np.ceil(np.max(np.abs(mc.shifts_rig))).astype(np.int)
-                fname_new = cm.save_memmap(fname_mc, base_name='memmap_', order='C',
-                                   border_to_0=bord_px)
+                # fname_mc = mc.fname_tot_els if self.pw_rigid else mc.fname_tot_rig
+                # if self.pw_rigid:
+                #     bord_px = np.ceil(np.maximum(np.max(np.abs(mc.x_shifts_els)),
+                #                                  np.max(np.abs(mc.y_shifts_els)))).astype(np.int)
+                # else:
+                #     bord_px = np.ceil(np.max(np.abs(mc.shifts_rig))).astype(np.int)
+                # fname_new = cm.save_memmap(fname_mc, base_name='memmap_', order='C',
+                #                    border_to_0=bord_px)
                 Yr, dims, T = cm.load_memmap(fname_new)
                 images = Yr.T.reshape((T,) + dims, order='F')
 
@@ -200,7 +199,7 @@ class PreProcessor():
 
                 if fname_new is None:
 
-                    fname_new = cm.save_memmap([self.path], base_name='memmap_', var_name_hdf5=f"mc/{loc}",
+                    fname_new = cm.save_memmap([self.path], base_name=f"memmap-{loc}_", var_name_hdf5=f"mc/{loc}",
                                order='C', border_to_0=0, dview=dview)
 
                     # with h5.File(self.path, "r") as file:
