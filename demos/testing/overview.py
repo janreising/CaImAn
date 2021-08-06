@@ -15,7 +15,6 @@ def main(path):
                 continue
 
 
-
 if __name__ == "__main__":
 
     input_file = None
