@@ -52,7 +52,7 @@ class CMotionCorrect():
         self.dimensions = []
         self.mmaps = []
 
-    def run_motion_correction(self, ram_size_multiplier=5, locs=None):
+    def run_motion_correction(self, ram_size_multiplier=5, locs=None, save_sample=False):
 
         ##################
         # File preparation
@@ -61,20 +61,6 @@ class CMotionCorrect():
 
         # check array shape; convert if necessary
         self.convert_xyz_to_zxy()
-
-        # decide whether to split files dependent on available RAM
-        file_size = os.stat(self.path).st_size
-        ram_size = psutil.virtual_memory().total
-        if self.verbose > 0:
-            print("{:.2f}GB:{:.2f}GB ({:.2f}%)".format(file_size / 1000 / 1024 / 1024,
-                                                       ram_size / 1000 / 1024 / 1024,
-                                                       file_size / ram_size * 100))
-
-        split_files = False
-        if ram_size < file_size * ram_size_multiplier:
-            if self.verbose > 0:
-                print("RAM not sufficient. Splitting file ...")
-            split_files = True
 
         ##################
         # Process channels
@@ -102,11 +88,26 @@ class CMotionCorrect():
                         print("Motion Correction already exists. Skipping ...")
                         continue
 
-            # split files if necessary
-            if split_files:
+            # decide whether to split files dependent on available RAM
+            # file_size = os.stat(self.path).st_size
+            with h5.File(self.path, "r") as file:
+                data = file[f"data/{loc}"]
+                z, x, y = data.shape
+                byte_num = np.dtype(data.dtype).izemsize
+                array_size = z * x * y * byte_num
+            ram_size = psutil.virtual_memory().total
+            if self.verbose > 0:
+                print("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
+                                                           ram_size / 1000 / 1024 / 1024,
+                                                           array_size / ram_size * 100))
+
+            if ram_size < array_size * ram_size_multiplier:
+                if self.verbose > 0:
+                    print("RAM not sufficient. Splitting ...")
                 self.split_h5_file(loc)
             else:
-
+                # since we are not splitting we need to manually
+                # save the dimensions for the next steps
                 with h5.File(self.path, "r") as file:
                     self.dimensions.append(file[f"data/{loc}"].shape)
                 self.files.append(self.path)
@@ -136,8 +137,10 @@ class CMotionCorrect():
 
                 # start cluster for parallel processing
                 n_processes = None
-                if self.on_server:
-                    n_processes = 7
+                if not self.on_server:
+                    n_processes = 6
+                else:
+                    n_processes = None
 
                 c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
                                                                  single_thread=False)
@@ -161,8 +164,9 @@ class CMotionCorrect():
 
             #############
             # Save sample
-            print("Saving sample ...")
-            self.save_tiff(loc=f"mc/{loc}")
+            if save_sample:
+                print("Saving sample ...")
+                self.save_tiff(loc=f"mc/{loc}")
 
             ###################
             # delete temp files
