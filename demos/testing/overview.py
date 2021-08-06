@@ -6,7 +6,6 @@ def main(path):
 
     with h5.File(path, "a") as file:
         for key in list(file.keys()):
-
             print(key, type(file[key]))
 
 
