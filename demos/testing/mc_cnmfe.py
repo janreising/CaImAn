@@ -56,7 +56,7 @@ class PreProcessor():
         self.dimensions = []
         self.mmaps = []
 
-    def run_preprocess(self, ram_size_multiplier=5, locs=None, save_sample=False,
+    def run_preprocess(self, ram_size_multiplier=7, locs=None, save_sample=False,
                        correlation_skip=5):
 
         ##################
