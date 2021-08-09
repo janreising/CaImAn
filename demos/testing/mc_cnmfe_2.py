@@ -77,18 +77,20 @@ class PreProcessor():
 
         for loc in locs:
 
-            if self.verbose > 0:
-                print("Processing location: ", repr(loc))
+            self.vprint("Processing location: ", repr(loc))
 
             # reset state
             self.files = []
             self.dimensions = []
             self.mmaps = []
 
-            if self.verbose > 0:
-                print("Starting cluster ...")
+            self.vprint("Starting cluster ...")
             # start cluster for parallel processing
-            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7,
+            if self.on_server:
+                proc = None
+            else:
+                proc = 7
+            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=proc,
                                                              single_thread=False)
             if self.verbose > 0:
                 print("Cluster started!")
