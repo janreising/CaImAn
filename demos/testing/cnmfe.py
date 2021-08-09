@@ -127,19 +127,19 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
         data = file.create_dataset(loc.replace("mc", "cnmfe"), dtype="i2", shape=rec.shape)
         data[:, :, :] = rec
 
-    if save_tiff:
-        tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
+    # if save_tiff:
+    #     tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
 
-    # save dFF
-    rec = cm.movie(rec)
-
-    mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-    if save_tiff:
-        tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
-
-    with h5.File(path, "a") as file:
-        data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
-        data[:, :, :] = mov_dff1
+    # # save dFF
+    # rec = cm.movie(rec)
+    #
+    # mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
+    # if save_tiff:
+    #     tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
+    #
+    # with h5.File(path, "a") as file:
+    #     data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
+    #     data[:, :, :] = mov_dff1
 
     # stop cluster
     dview.terminate()
