@@ -77,7 +77,7 @@ class PreProcessor():
 
         for loc in locs:
 
-            self.vprint("Processing location: ", repr(loc))
+            self.vprint("Processing location: {}".format(repr(loc)))
 
             # reset state
             self.files = []
