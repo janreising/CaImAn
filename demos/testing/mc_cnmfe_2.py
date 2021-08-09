@@ -86,11 +86,7 @@ class PreProcessor():
 
             self.vprint("Starting cluster ...")
             # start cluster for parallel processing
-            if self.on_server:
-                proc = None
-            else:
-                proc = 7
-            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=proc,
+            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=14,
                                                              single_thread=False)
             if self.verbose > 0:
                 print("Cluster started!")
