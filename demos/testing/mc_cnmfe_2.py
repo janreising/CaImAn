@@ -86,7 +86,7 @@ class PreProcessor():
 
             self.vprint("Starting cluster ...")
             # start cluster for parallel processing
-            c, dview, n_processes = cm.cluster.setup_cluster(backend='SLURM', n_processes=7, # TODO why is this so weird
+            c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7, # TODO why is this so weird
                                                              single_thread=False)
             self.vprint("Cluster started!")
 
