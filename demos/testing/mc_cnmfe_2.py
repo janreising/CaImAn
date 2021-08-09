@@ -234,7 +234,7 @@ class PreProcessor():
             for mmap in self.mmaps:
 
                 Yr, dims, T = cm.load_memmap(mmap)
-                images = Yr.T.reshape((T,) + dims, order='F')
+                images = Yr.T.reshape((T,) + dims, order='C')
                 print(f"i:{i}\tdims:{dims}")
 
                 #################
