@@ -172,25 +172,19 @@ class PreProcessor():
                 if self.verbose > 0:
                     print("Creating Memory Map ...")
 
-                # TODO this part should probably be:
-                fname_new = cm.save_memmap_join(self.mmaps, base_name=f"mmap-{loc}_", dview=dview)
+                # # TODO this part should probably be:
+                # fname_new = cm.save_memmap_join(self.mmaps, base_name=f"mmap-{loc}_", dview=dview)
 
-                # fname_mc = mc.fname_tot_els if self.pw_rigid else mc.fname_tot_rig
-                # if self.pw_rigid:
-                #     bord_px = np.ceil(np.maximum(np.max(np.abs(mc.x_shifts_els)),
-                #                                  np.max(np.abs(mc.y_shifts_els)))).astype(np.int)
-                # else:
-                #     bord_px = np.ceil(np.max(np.abs(mc.shifts_rig))).astype(np.int)
-                # fname_new = cm.save_memmap(fname_mc, base_name='memmap_', order='C',
-                #                    border_to_0=bord_px)
-                Yr, dims, T = cm.load_memmap(fname_new)
-                images = Yr.T.reshape((T,) + dims, order='F')
+                # Yr, dims, T = cm.load_memmap(fname_new)
+                # images = Yr.T.reshape((T,) + dims, order='F')
 
             else:
 
                 # load memory mappable file
                 if self.verbose > 0:
                     print("Creating Memory Map ...")
+
+                """
 
                 # check if mmap already exists
                 with h5.File(self.path) as file:
@@ -231,69 +225,82 @@ class PreProcessor():
 
                 Yr, dims, T = cm.load_memmap(fname_new)
                 images = Yr.T.reshape((T,) + dims, order='F')
+                
+                """
 
-            #################
-            # CNMFE DENOISING
 
-            # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
-            opts_dict = {'dims': dims,
-                                'method_init': 'corr_pnr',  # use this for 1 photon
-                                'K': None, # upper bound on number of components per patch, in general None for 1p data
-                                'gSig': (3, 3),  # gaussian width of a 2D gaussian kernel, which approximates a neuron
-                                'gSiz': (13, 13),  # average diameter of a neuron, in general 4*gSig+1
-                                'merge_thr': .7,  # merging threshold, max correlation allowed
-                                'p': 1, # order of the autoregressive system
-                                'tsub': 2, # downsampling factor in time for initialization,
-                                      # increase if you have memory problems
-                                'ssub': 1,  # downsampling factor in space for initialization,
-                                    # increase if you have memory problems
-                                    # you can pass them here as boolean vectors
-                                'rf': 40,  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80
-                                'stride': 20,  # amount of overlap between the patches in pixels
-                                        # (keep it at least large as gSiz, i.e 4 times the neuron size gSig)
-                                'only_init': True,  # set it to True to run CNMF-E
-                                'nb': 0, # number of background components (rank) if positive,
-                                      # else exact ring model with following settings
-                                      # gnb= 0: Return background as b and W
-                                      # gnb=-1: Return full rank background B
-                                      # gnb<-1: Don't return background
-                                'nb_patch': 0,  # number of background components (rank) per patch if gnb>0,
-                                      # else it is set automatically
-                                'method_deconvolution': 'oasis',  # could use 'cvxpy' alternatively
-                                'low_rank_background': None,  # None leaves background of each patch intact,
-                                      # True performs global low-rank approximation if gnb>0
-                                'update_background_components': True,
-                                # sometimes setting to False improve the results
-                                'min_corr': .8,  # min peak value from correlation image
-                                'min_pnr': 10,  # min peak to noise ration from PNR image
-                                'normalize_init': False,  # just leave as is
-                                'center_psf': True,  # leave as is for 1 photon
-                                'ssub_B': 2,  # additional downsampling factor in space for background
-                                'ring_size_factor': 1.4,  # radius of ring is gSiz*ring_size_factor
-                                'del_duplicates': True,  # whether to remove duplicates from initialization
-                                'border_pix': 0,  # number of pixels to not consider in the borders)
-                         }
+            i = 0
+            for mmap in self.mmaps:
 
-            opts = cnmfparams.CNMFParams(params_dict=opts_dict)
+                Yr, dims, T = cm.load_memmap(mmap)
+                images = Yr.T.reshape((T,) + dims, order='F')
+                print(f"i:{i}\tdims:{dims}")
 
-            # %% RUN CNMF ON PATCHES
-            if self.verbose > 0:
-                print("Running CNMF ...")
-            cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
-            cnm.fit(images)
-            print("Fit successful!")
+                #################
+                # CNMFE DENOISING
 
-            # save result
-            if self.verbose > 0:
-                print("Reconstructing ...")
-            rec = self.get_reconstructed(cnm.estimates, images)
+                # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
+                opts_dict = {'dims': dims,
+                                    'method_init': 'corr_pnr',  # use this for 1 photon
+                                    'K': None, # upper bound on number of components per patch, in general None for 1p data
+                                    'gSig': (3, 3),  # gaussian width of a 2D gaussian kernel, which approximates a neuron
+                                    'gSiz': (13, 13),  # average diameter of a neuron, in general 4*gSig+1
+                                    'merge_thr': .7,  # merging threshold, max correlation allowed
+                                    'p': 1, # order of the autoregressive system
+                                    'tsub': 2, # downsampling factor in time for initialization,
+                                          # increase if you have memory problems
+                                    'ssub': 1,  # downsampling factor in space for initialization,
+                                        # increase if you have memory problems
+                                        # you can pass them here as boolean vectors
+                                    'rf': 40,  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80
+                                    'stride': 20,  # amount of overlap between the patches in pixels
+                                            # (keep it at least large as gSiz, i.e 4 times the neuron size gSig)
+                                    'only_init': True,  # set it to True to run CNMF-E
+                                    'nb': 0, # number of background components (rank) if positive,
+                                          # else exact ring model with following settings
+                                          # gnb= 0: Return background as b and W
+                                          # gnb=-1: Return full rank background B
+                                          # gnb<-1: Don't return background
+                                    'nb_patch': 0,  # number of background components (rank) per patch if gnb>0,
+                                          # else it is set automatically
+                                    'method_deconvolution': 'oasis',  # could use 'cvxpy' alternatively
+                                    'low_rank_background': None,  # None leaves background of each patch intact,
+                                          # True performs global low-rank approximation if gnb>0
+                                    'update_background_components': True,
+                                    # sometimes setting to False improve the results
+                                    'min_corr': .8,  # min peak value from correlation image
+                                    'min_pnr': 10,  # min peak to noise ration from PNR image
+                                    'normalize_init': False,  # just leave as is
+                                    'center_psf': True,  # leave as is for 1 photon
+                                    'ssub_B': 2,  # additional downsampling factor in space for background
+                                    'ring_size_factor': 1.4,  # radius of ring is gSiz*ring_size_factor
+                                    'del_duplicates': True,  # whether to remove duplicates from initialization
+                                    'border_pix': 0,  # number of pixels to not consider in the borders)
+                             }
 
-            if self.verbose > 0:
-                print("Saving reconstruction ...")
+                opts = cnmfparams.CNMFParams(params_dict=opts_dict)
 
-            with h5.File(self.path, "a") as file:
-                data = file.create_dataset(f"cnmfe/{loc}", dtype="i2", shape=rec.shape)
-                data[:, :, :] = rec
+                # %% RUN CNMF ON PATCHES
+                self.vprint("Running CNMF ...")
+                cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
+                cnm.fit(images)
+                self.vprint("Fit successful!")
+
+                # save result
+                self.vprint("Reconstructing ...")
+                rec = self.get_reconstructed(cnm.estimates, images)
+
+                self.vprint("Saving reconstruction ...")
+                with h5.File(self.path, "a") as file:
+                    # TODO check this earlier and skip step if possible
+                    sub_loc = f"cnmfe/{loc}/{i}"
+                    if sub_loc not in file:
+                        data = file.create_dataset(sub_loc, dtype="i2", shape=rec.shape)
+                        data[:, :, :] = rec
+                    else:
+                        self.vprint(f"loc:{sub_loc} already exists. Unnecessarily created!?")
+
+                i = i+1
 
             # if self.verbose > 0:
             #     print("Calculating dFF ...")
@@ -601,6 +608,10 @@ class PreProcessor():
         reconstructed = Y_rec + include_bck * B
         return reconstructed
 
+    def vprint(self, str, level=0):
+
+        if self.verbose > level:
+            print(str)
 
 if __name__ == "__main__":
 
