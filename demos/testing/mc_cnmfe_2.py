@@ -103,7 +103,7 @@ class PreProcessor():
             with h5.File(self.path, "r") as file:
                 if f"mc/{loc}" in file:
                     if self.verbose > 0:
-                        print("Motion Correction already exists. Skipping ...")
+                        print(f"Motion Correction already exists ({loc}). Skipping ...")
                         skip_mc = True
 
             if not skip_mc:
@@ -185,8 +185,14 @@ class PreProcessor():
                 if self.verbose > 0:
                     print("Creating Memory Map ...")
 
-                """
+                # recreate file names
+                #TODO this is a mess
+                self.split_h5_file(loc, ram_size_multiplier=ram_size_multiplier)
+                self.vprint(f"Files recreated: {self.files}")
+                self.get_mmaps()
+                self.vprint(f"mmaps recreated: {self.mmaps}")
 
+                """
                 # check if mmap already exists
                 with h5.File(self.path) as file:
                     Z, _, _ = file[f"data/{loc}"].shape
@@ -282,7 +288,7 @@ class PreProcessor():
                 opts = cnmfparams.CNMFParams(params_dict=opts_dict)
 
                 # %% RUN CNMF ON PATCHES
-                self.vprint("Running CNMF ...")
+                self.vprint(f"Running CNMF on {mmap} ...")
                 cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
                 cnm.fit(images)
                 self.vprint("Fit successful!")
