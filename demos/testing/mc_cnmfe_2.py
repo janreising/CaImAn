@@ -8,6 +8,7 @@ import tifffile as tf
 from tqdm import tqdm
 import getopt
 from skimage.transform import resize
+import time
 
 import cv2
 try:
@@ -88,7 +89,9 @@ class PreProcessor():
             # start cluster for parallel processing
             c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7, # TODO why is this so weird
                                                              single_thread=False)
+            time.sleep(10)
             self.vprint("Cluster started!")
+            time.sleep(10)
 
             ###################
             # MOTION CORRECTION
