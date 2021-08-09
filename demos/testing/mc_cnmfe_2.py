@@ -238,8 +238,12 @@ class PreProcessor():
             for mmap in self.mmaps:
 
                 Yr, dims, T = cm.load_memmap(mmap)
-                images = Yr.T.reshape((T,) + dims, order='C')
+                images = Yr.T.reshape((T,) + dims, order='F')
                 print(f"i:{i}\tdims:{dims}")
+
+                fname_new = cm.save_memmap([images], base_name=f"temp_{loc}_", order="C")
+                Yr, dims, T = cm.load_memmap(fname_new)
+                images = Yr.T.reshape((T,) + dims, order='C')
 
                 #################
                 # CNMFE DENOISING
