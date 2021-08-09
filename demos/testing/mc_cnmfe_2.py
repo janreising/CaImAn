@@ -106,8 +106,7 @@ class PreProcessor():
 
             if not skip_mc:
 
-                if self.verbose > 0:
-                    print("Starting motion correction ...")
+                self.vprint("Starting motion correction ...")
 
                 # decide whether to split files dependent on available RAM
                 # file_size = os.stat(self.path).st_size
@@ -608,10 +607,10 @@ class PreProcessor():
         reconstructed = Y_rec + include_bck * B
         return reconstructed
 
-    def vprint(self, str, level=0):
+    def vprint(self, msg, level=0):
 
         if self.verbose > level:
-            print(str)
+            print(msg)
 
 if __name__ == "__main__":
 
@@ -630,8 +629,8 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    mc = PreProcessor(path=input_file, verbose=3, delete_temp_files=True, on_server=False)
-    mc.run_preprocess(ram_size_multiplier=7)
+    mc = PreProcessor(path=input_file, verbose=3, delete_temp_files=True, on_server=True)
+    mc.run_preprocess(ram_size_multiplier=30)
 
 
 

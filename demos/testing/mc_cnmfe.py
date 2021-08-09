@@ -77,21 +77,18 @@ class PreProcessor():
 
         for loc in locs:
 
-            if self.verbose > 0:
-                print("Processing location: ", repr(loc))
+            self.vprint("Processing location: ", repr(loc))
 
             # reset state
             self.files = []
             self.dimensions = []
             self.mmaps = []
 
-            if self.verbose > 0:
-                print("Starting cluster ...")
+            self.vprint("Starting cluster ...")
             # start cluster for parallel processing
             c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7,
                                                              single_thread=False)
-            if self.verbose > 0:
-                print("Cluster started!")
+            self.vprint("Cluster started!")
 
             ###################
             # MOTION CORRECTION
@@ -106,8 +103,7 @@ class PreProcessor():
 
             if not skip_mc:
 
-                if self.verbose > 0:
-                    print("Starting motion correction ...")
+                self.vprint("Running motion correction ...")
 
                 # decide whether to split files dependent on available RAM
                 # file_size = os.stat(self.path).st_size
@@ -117,14 +113,12 @@ class PreProcessor():
                     byte_num = np.dtype(data.dtype).itemsize
                     array_size = z * x * y * byte_num
                 ram_size = psutil.virtual_memory().total
-                if self.verbose > 0:
-                    print("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
+                self.vprint("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
                                                                ram_size / 1000 / 1024 / 1024,
                                                                array_size / ram_size * 100))
 
                 if ram_size < array_size * ram_size_multiplier:
-                    if self.verbose > 0:
-                        print("RAM not sufficient. Splitting ...")
+                    self.vprint("RAM not sufficient. Splitting ...")
                     self.split_h5_file(loc, ram_size_multiplier=ram_size_multiplier)
                 else:
                     # since we are not splitting we need to manually
@@ -155,8 +149,7 @@ class PreProcessor():
                     opts = volparams(params_dict=opts_dict)
 
                     # Run correction
-                    if self.verbose > 0:
-                        print("Starting motion correction ... [{}]".format(f"data/{loc}"))
+                    self.vprint("Running motion correction ... [{}]".format(f"data/{loc}"))
                     mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"data/{loc}", **opts.get_group('motion'))
                     mc.motion_correct(save_movie=True)
 
@@ -165,12 +158,11 @@ class PreProcessor():
                 self.mmaps = [self.base + self.mmap_exists(file) for file in self.files]
                 assert len(self.mmaps) == len(self.files), "Missing .mmap files"
 
-                print("Converting mmap to h5 ...")
+                self.vprint("Converting mmap to h5 ...")
                 self.save_memmap_to_h5(loc=f"mc/{loc}")
 
                 # load memory mappable file
-                if self.verbose > 0:
-                    print("Creating Memory Map ...")
+                self.vprint("Creating Memory Map ...")
 
                 # TODO this part should probably be:
                 fname_new = cm.save_memmap_join(self.mmaps, base_name=f"mmap-{loc}_", dview=dview)
@@ -277,8 +269,7 @@ class PreProcessor():
             opts = cnmfparams.CNMFParams(params_dict=opts_dict)
 
             # %% RUN CNMF ON PATCHES
-            if self.verbose > 0:
-                print("Running CNMF ...")
+            self.vprint("Running CNMF ...")
             cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
             cnm.fit(images)
             print("Fit successful!")
@@ -600,6 +591,11 @@ class PreProcessor():
 
         reconstructed = Y_rec + include_bck * B
         return reconstructed
+
+    def vprint(self, msg, level=0):
+
+        if self.verbose > level:
+            print(msg)
 
 
 if __name__ == "__main__":
