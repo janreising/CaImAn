@@ -432,7 +432,7 @@ if __name__ == "__main__":
     print("InputFile: ", input_file)
 
     mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True)
-    mc.run_motion_correction()
+    mc.run_motion_correction(ram_size_multiplier=40)
 
 
 
