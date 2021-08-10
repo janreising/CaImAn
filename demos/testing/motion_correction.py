@@ -93,7 +93,7 @@ class CMotionCorrect():
             with h5.File(self.path, "r") as file:
                 data = file[f"data/{loc}"]
                 z, x, y = data.shape
-                byte_num = np.dtype(data.dtype).izemsize
+                byte_num = np.dtype(data.dtype).itemsize
                 array_size = z * x * y * byte_num
             ram_size = psutil.virtual_memory().total
             if self.verbose > 0:

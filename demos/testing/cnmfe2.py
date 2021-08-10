@@ -13,7 +13,7 @@ import tifffile as tf
 import warnings
 warnings.filterwarnings("ignore")
 
-def main(path, loc, save_tiff=False, correlation_skip=5):
+def main(path, loc, save_tiff=False, indices=None):
 
     print("Path: ", path)
     print("Loc: ", loc)
@@ -30,12 +30,18 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
 
     bord_px = 0     # because border_nan == 'copy' in motion correction
 
+    print("Saving mmap ...")
     fname_new = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
-                               order='C', border_to_0=0, dview=dview, )
+                               order='C', border_to_0=0, dview=dview,
+                               slices=[indices, slice(0, 1200), slice(0, 1200)])
 
     # load memory mappable file
     Yr, dims, T = cm.load_memmap(fname_new)
     images = Yr.T.reshape((T,) + dims, order='F')
+
+    print("shape: {}".format(images.shape))
+
+    rf = 40
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
 
@@ -45,7 +51,7 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
     gSiz = (13, 13)  # average diameter of a neuron, in general 4*gSig+1
     Ain = None  # possibility to seed with predetermined binary masks
     merge_thr = .7  # merging threshold, max correlation allowed
-    rf = 40  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80
+    # rf = None #40  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80
     stride_cnmf = 20  # amount of overlap between the patches in pixels
     #                     (keep it at least large as gSiz, i.e 4 times the neuron size gSig)
     tsub = 2  # downsampling factor in time for initialization,
@@ -95,6 +101,7 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
                                     'border_pix': bord_px # number of pixels to not consider in the borders)
                                           })
 
+    """    
     # %% compute some summary images (correlation and peak to noise)
     # change swap dim if output looks weird, it is a problem with tiffile
     cn_filter, pnr = cm.summary_images.correlation_pnr(images[::correlation_skip], gSig=gSig[0], swap_dim=False)
@@ -106,6 +113,7 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
     inspect_correlation_pnr(cn_filter, pnr)
     # print parameters set above, modify them if necessary based on summary images
     print(f"Min correlation of Peak: {min_corr}\nMin peak to to noise ration: {min_pnr}")
+    """
 
     # %% RUN CNMF ON PATCHES
     cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=Ain, params=opts)
@@ -116,11 +124,20 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
     rec = get_reconstructed(cnm.estimates, images)
 
     with h5.File(path, "a") as file:
-        data = file.create_dataset(loc.replace("mc", "cnmfe"), dtype="i2", shape=rec.shape)
-        data[:, :, :] = rec
 
-    # if save_tiff:
-    #     tf.imsave(path+"_"+loc.replace("/", "-")+".tiff", rec)
+        new_loc = loc.replace("mc", "cnmfe")
+        if new_loc not in file:
+            data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape)
+        else:
+            data = file[new_loc]
+
+        if indices is None:
+            data[:, :, :] = rec
+        else:
+            data[indices.start:indices.stop, :, :] = rec
+
+    if save_tiff:
+        tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
 
     # # save dFF
     # rec = cm.movie(rec)
@@ -132,6 +149,9 @@ def main(path, loc, save_tiff=False, correlation_skip=5):
     # with h5.File(path, "a") as file:
     #     data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
     #     data[:, :, :] = mov_dff1
+
+    # cleanup
+    os.remove(fname_new)
 
     # stop cluster
     dview.terminate()
@@ -190,6 +210,17 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    main(path=input_file, loc="mc/ast", save_tiff=False)
-    main(path=input_file, loc="mc/neu", save_tiff=False)
+    # main(path=input_file, loc="mc/ast", save_tiff=True, in_memory=True)
+    # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
+
+    steps = 500
+    with h5.File(input_file) as file:
+        z, x, y = file["mc/ast"].shape
+
+        for z0 in range(0, z, steps):
+
+            z1 = min(z, z0+steps)
+
+            main(path=input_file, loc="mc/ast", save_tiff=False, indices=slice(z0, z1))
+            main(path=input_file, loc="mc/neu", save_tiff=False, indices=slice(z0, z1))
 
