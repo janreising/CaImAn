@@ -209,6 +209,7 @@ if __name__ == "__main__":
 
     print("Cluster started!")
 
+    """
     try:
         steps = 500
         with h5.File(input_file) as file:
@@ -230,3 +231,5 @@ if __name__ == "__main__":
         # stop cluster
         dview.terminate()
         cm.stop_server()
+        
+    """
