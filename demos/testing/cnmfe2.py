@@ -86,43 +86,49 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
                  'border_pix': 0,  # number of pixels to not consider in the borders)
                  }
 
-    # %% RUN CNMF ON PATCHES
-    cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
-    cnm.fit(images)
-    print("Fit successful!")
+    try:
+        # %% RUN CNMF ON PATCHES
+        cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts_dict)
+        cnm.fit(images)
+        print("Fit successful!")
 
-    # save result
-    rec = get_reconstructed(cnm.estimates, images)
+        # save result
+        rec = get_reconstructed(cnm.estimates, images)
 
-    with h5.File(path, "a") as file:
+        with h5.File(path, "a") as file:
 
-        new_loc = loc.replace("mc", "cnmfe")
-        if new_loc not in file:
-            data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape)
-        else:
-            data = file[new_loc]
+            new_loc = loc.replace("mc", "cnmfe")
+            if new_loc not in file:
+                data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape)
+            else:
+                data = file[new_loc]
 
-        if indices is None:
-            data[:, :, :] = rec
-        else:
-            data[indices.start:indices.stop, :, :] = rec
+            if indices is None:
+                data[:, :, :] = rec
+            else:
+                data[indices.start:indices.stop, :, :] = rec
 
-    if save_tiff:
-        tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
+        if save_tiff:
+            tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
 
-    # # save dFF
-    # rec = cm.movie(rec)
-    #
-    # mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-    # if save_tiff:
-    #     tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
-    #
-    # with h5.File(path, "a") as file:
-    #     data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
-    #     data[:, :, :] = mov_dff1
+        # # save dFF
+        # rec = cm.movie(rec)
+        #
+        # mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
+        # if save_tiff:
+        #     tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
+        #
+        # with h5.File(path, "a") as file:
+        #     data = file.create_dataset(loc.replace("mc", "dff"), dtype="i2", shape=rec.shape)
+        #     data[:, :, :] = mov_dff1
 
-    # cleanup
-    os.remove(mmap_name)
+    except Exception as err:
+        print(err)
+
+    finally:
+
+        # cleanup
+        os.remove(mmap_name)
 
 
 def get_reconstructed(estimates, imgs, include_bck=True):
@@ -180,7 +186,7 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/ast", save_tiff=True, in_memory=True)
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=7,  # TODO why is this so weird
                                                      single_thread=False)
 
     print("Cluster started!")
