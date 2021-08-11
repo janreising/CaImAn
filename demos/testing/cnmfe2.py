@@ -209,7 +209,6 @@ if __name__ == "__main__":
 
     print("Cluster started!")
 
-    """
     try:
         steps = 500
         with h5.File(input_file) as file:
@@ -221,15 +220,15 @@ if __name__ == "__main__":
             z1 = min(z, z0+steps)
             print(f"Processing {z0} to {z1}")
 
-            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
-            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
+            # main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
+            #      save_tiff=False, indices=slice(z0, z1))
+            # main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
+            #      save_tiff=False, indices=slice(z0, z1))
 
     finally:
 
-        # stop cluster
-        dview.terminate()
-        cm.stop_server()
-        
-    """
+        # # stop cluster
+        # dview.terminate()
+        # cm.stop_server()
+
+        print("Done")
