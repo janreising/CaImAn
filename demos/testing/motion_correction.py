@@ -174,12 +174,19 @@ class CMotionCorrect():
 
                 if len(self.files) > 1:
                     for file in self.files:
-                        os.remove(file)
+                        try:
+                            os.remove(file)
+                        except FileNotFoundError:
+                            print(f"File: {file} already deleted")
                 self.files = []
                 self.dimensions = []
 
                 for file in self.mmaps:
-                    os.remove(file)
+                    try:
+                        os.remove(file)
+                    except FileNotFoundError:
+                        print(f"File: {file} already deleted")
+                        
                 self.mmaps = []
 
     @staticmethod
@@ -359,7 +366,11 @@ class CMotionCorrect():
                     temp = df.split(os.sep)[-1]
 
                     if temp.startswith(start) and temp.endswith(".mmap"):
-                        self.mmaps.append(f"{self.base}{df}")
+                        ft = f"{self.base}{df}"
+
+                        if ft not in self.mmaps:
+                            self.mmaps.append(ft)
+
                         continue
 
         else:
@@ -367,7 +378,11 @@ class CMotionCorrect():
                 temp = df.split(os.sep)[-1]
 
                 if temp.startswith(self.name[:-2]) and temp.endswith(".mmap"):
-                    self.mmaps.append(f"{self.base}{df}")
+                    ft = f"{self.base}{df}"
+
+                    if ft not in self.mmaps:
+                        self.mmaps.append(ft)
+
                     continue
 
     def mmap_exists(self, spath):
