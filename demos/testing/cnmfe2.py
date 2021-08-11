@@ -206,27 +206,29 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
     print("Starting cluster ...")
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='ipyparallel', # local
-                                                     n_processes=7,
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local',  # local
+                                                     n_processes=6,
                                                      single_thread=False,
                                                      ignore_preexisting=True)
     print("Cluster started!")
 
-    steps = 500
-    with h5.File(input_file) as file:
-        z, x, y = file["mc/ast"].shape
+    try:
+        steps = 500
+        with h5.File(input_file) as file:
+            z, x, y = file["mc/ast"].shape
 
-        for z0 in range(0, z, steps):
+            for z0 in range(0, z, steps):
 
-            z1 = min(z, z0+steps)
-            print(f"Processing {z0} to {z1}")
+                z1 = min(z, z0+steps)
+                print(f"Processing {z0} to {z1}")
 
-            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
-            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
+                main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
+                     save_tiff=False, indices=slice(z0, z1))
+                main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
+                     save_tiff=False, indices=slice(z0, z1))
 
+    finally:
 
-    # stop cluster
-    dview.terminate()
-    cm.stop_server()
+        # stop cluster
+        dview.terminate()
+        cm.stop_server()
