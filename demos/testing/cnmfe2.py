@@ -2,6 +2,7 @@ import os, sys
 import h5py as h5
 import numpy as np
 import getopt
+import time
 
 import caiman as cm
 from caiman.source_extraction.cnmf import params as params
@@ -27,6 +28,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
     bord_px = 0     # because border_nan == 'copy' in motion correction
 
     print("Saving mmap ...")
+    time.sleep(5) #TODO delete
     fname_new = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
                                order='C', border_to_0=0, dview=dview,
                                slices=[indices, slice(0, 1200), slice(0, 1200)])
@@ -223,8 +225,8 @@ if __name__ == "__main__":
             z1 = min(z, z0+steps)
             print(f"Processing {z0} to {z1}")
 
-            # main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-            #      save_tiff=False, indices=slice(z0, z1))
+            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
+                 save_tiff=False, indices=slice(z0, z1))
             # main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
             #      save_tiff=False, indices=slice(z0, z1))
 
