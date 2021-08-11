@@ -24,9 +24,12 @@ def main(path, loc, save_tiff=False, indices=None):
     except():
         pass
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
-                                                     n_processes=7,
-                                                     single_thread=False)
+    # c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
+    #                                                  n_processes=7,
+    #                                                  single_thread=False)
+
+    dview = None
+    n_processes = None
 
     bord_px = 0     # because border_nan == 'copy' in motion correction
 
