@@ -206,9 +206,10 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
     print("Starting cluster ...")
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='ipyparallel', # local
                                                      n_processes=7,
-                                                     single_thread=False)
+                                                     single_thread=False,
+                                                     ignore_preexisting=True)
     print("Cluster started!")
 
     steps = 500
