@@ -205,11 +205,8 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/ast", save_tiff=True, in_memory=True)
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
-    print("Starting cluster ...")
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local',  # local
-                                                     n_processes=6,
-                                                     single_thread=False,
-                                                     ignore_preexisting=True)
+    c, dview, n_processes = None, None, None
+
     print("Cluster started!")
 
     try:
