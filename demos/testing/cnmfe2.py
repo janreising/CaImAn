@@ -215,6 +215,9 @@ if __name__ == "__main__":
             data = file["mc/ast"]
             z, x, y = data.shape
 
+        print("Shape: \n")
+        print(z, x, y)
+
         for z0 in range(0, z, steps):
 
             z1 = min(z, z0+steps)
