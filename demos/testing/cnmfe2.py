@@ -180,7 +180,8 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/ast", save_tiff=True, in_memory=True)
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
-    c, dview, n_processes = None, None, None
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
+                                                     single_thread=False)
 
     print("Cluster started!")
 
@@ -200,13 +201,13 @@ if __name__ == "__main__":
 
             main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
                  save_tiff=False, indices=slice(z0, z1))
-            # main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-            #      save_tiff=False, indices=slice(z0, z1))
+            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
+                 save_tiff=False, indices=slice(z0, z1))
 
     finally:
 
-        # # stop cluster
-        # dview.terminate()
-        # cm.stop_server()
+        # stop cluster
+        dview.terminate()
+        cm.stop_server()
 
         print("Done")
