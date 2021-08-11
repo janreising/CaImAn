@@ -24,12 +24,10 @@ def main(path, loc, save_tiff=False, indices=None):
     # except():
     #     pass
 
-    # c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
-    #                                                  n_processes=7,
-    #                                                  single_thread=False)
-
-    dview = None
-    n_processes = None
+    print("Starting cluster")
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
+                                                     n_processes=7,
+                                                     single_thread=False)
 
     bord_px = 0     # because border_nan == 'copy' in motion correction
 
@@ -223,6 +221,7 @@ if __name__ == "__main__":
         for z0 in range(0, z, steps):
 
             z1 = min(z, z0+steps)
+            print(f"Processing {z0} to {z1}")
 
             main(path=input_file, loc="mc/ast", save_tiff=False, indices=slice(z0, z1))
             main(path=input_file, loc="mc/neu", save_tiff=False, indices=slice(z0, z1))
