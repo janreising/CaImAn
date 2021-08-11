@@ -233,7 +233,7 @@ if __name__ == "__main__":
     print("Cluster started!")
 
     try:
-        steps = 500
+        steps = 300
         with h5.File(input_file) as file:
             data = file["mc/ast"]
             z, x, y = data.shape
@@ -246,9 +246,9 @@ if __name__ == "__main__":
             print(f"Processing {z0} to {z1}")
 
             main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-                 save_tiff=True, indices=slice(z0, z1))
+                 save_tiff=False, indices=slice(z0, z1))
             main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-                 save_tiff=True, indices=slice(z0, z1))
+                 save_tiff=False, indices=slice(z0, z1))
 
     finally:
 
