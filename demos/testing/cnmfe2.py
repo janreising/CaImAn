@@ -19,10 +19,10 @@ def main(path, loc, save_tiff=False, indices=None):
     print("Loc: ", loc)
 
     # start the cluster
-    try:
-        cm.stop_server()  # stop it if it was running
-    except():
-        pass
+    # try:
+    #     cm.stop_server()  # stop it if it was running
+    # except():
+    #     pass
 
     # c, dview, n_processes = cm.cluster.setup_cluster(backend='local',
     #                                                  n_processes=7,
