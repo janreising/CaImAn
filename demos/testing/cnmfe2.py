@@ -28,33 +28,36 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
 
     bord_px = 0     # because border_nan == 'copy' in motion correction
 
-    # print("Saving mmap ...")
-    # time.sleep(5) #TODO delete
-    # fname_new = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
-    #                            order='C', border_to_0=0, dview=dview,
-    #                            slices=[indices, slice(0, 1200), slice(0, 1200)])
+    print("Saving mmap ...")
+    order = 'C'
+    mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
+                               order=order, border_to_0=0,
+                               slices=[indices, slice(0, 1200), slice(0, 1200)])
     #
     # # load memory mappable file
     # Yr, dims, T = cm.load_memmap(fname_new)
     # images = Yr.T.reshape((T,) + dims, order='F')
 
-    print("Saving mmap ...")
-    with h5.File(path) as file:
-        data = file[loc][indices.start:indices.stop, :, :]
-        z, x, y = data.shape
-
-        # memmap__d1_1200_d2_1200_d3_1_order_C_frames_50_
-        mmap_name = path + "_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_{}.{}-{}.mmap".format(
-            x, y, 1, "C", z, loc.replace("/", "-"), indices.start, indices.stop)
-
-        temp = np.memmap(mmap_name, dtype='float32', order='C', mode='w+', shape=data.shape)
-        temp[:, :, :] = data
-
-        del data
-        del temp
+    # print("Saving mmap ...")
+    # with h5.File(path) as file:
+    #     print("Indices: {} - {}".format(indices.start, indices.stop))
+    #     data = file[loc][indices.start:indices.stop, :, :]
+    #     z, x, y = data.shape
+    #     print(f"Loaded shape: {z}x{x}x{y}")
+    #
+    #     # memmap__d1_1200_d2_1200_d3_1_order_C_frames_50_
+    #     order = 'C'
+    #     mmap_name = path + "_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_{}.{}-{}.mmap".format(
+    #         x, y, 1, order, z, loc.replace("/", "-"), indices.start, indices.stop)
+    #
+    #     temp = np.memmap(mmap_name, dtype='float32', order=order, mode='w+', shape=data.shape)
+    #     temp[:, :, :] = data
+    #
+    #     del data
+    #     del temp
 
     Yr, dims, T = cm.load_memmap(mmap_name)
-    images = Yr.T.reshape((T,) + dims, order='F')
+    images = Yr.T.reshape((T,) + dims, order=order)
 
     print("shape: {}".format(images.shape))
 
@@ -227,8 +230,7 @@ if __name__ == "__main__":
             data = file["mc/ast"]
             z, x, y = data.shape
 
-        print("Shape: \n")
-        print(z, x, y)
+        print(f"Shape: {x}x{y}x{z}")
 
         for z0 in range(0, z, steps):
 
@@ -236,9 +238,9 @@ if __name__ == "__main__":
             print(f"Processing {z0} to {z1}")
 
             main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
+                 save_tiff=True, indices=slice(z0, z1))
             main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
+                 save_tiff=True, indices=slice(z0, z1))
 
     finally:
 
