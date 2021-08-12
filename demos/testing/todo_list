@@ -1,0 +1,5 @@
+1) DIR -> h5
+2) downsample -> dwn/
+3) motion correction -> mc/
+4) cnmfe -> cnmfe/
+5) detrend / dFF -> dFF/
