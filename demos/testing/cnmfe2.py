@@ -76,7 +76,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
     gSiz = (13, 13)  # average diameter of a neuron, in general 4*gSig+1
     Ain = None  # possibility to seed with predetermined binary masks
     merge_thr = .7  # merging threshold, max correlation allowed
-    rf = 40  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80
+    rf = 20 # 40  # half-size of the patches in pixels. e.g., if rf=40, patches are 80x80 #TODO change back
     stride_cnmf = 20  # amount of overlap between the patches in pixels
     #                     (keep it at least large as gSiz, i.e 4 times the neuron size gSig)
     tsub = 2  # downsampling factor in time for initialization,
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     print("Cluster started!")
 
     try:
-        steps = 300
+        steps = 1000
         with h5.File(input_file) as file:
             data = file["mc/ast"]
             z, x, y = data.shape

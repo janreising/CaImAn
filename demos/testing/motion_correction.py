@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore")
 class CMotionCorrect():
 
     def __init__(self, path,
-                 loc_out="mc/", on_server=True, verbose=0, delete_temp_files=True,
+                 loc_out="mc/", loc_in="data/", on_server=True, verbose=0, delete_temp_files=True,
                  fr=10, pw_rigid=False, max_shifts=(50, 50), gSig_filt=(20, 20),
                  strides=(48, 48), overlaps=(24, 24), max_deviation_rigid=3, border_nan='copy'
                  ):
@@ -35,6 +35,7 @@ class CMotionCorrect():
         # TODO check if exists
         # TODO change naming conventions
         self.loc_out = loc_out
+        self.loc_in = loc_in
         self.on_server = on_server
         self.delete_temp_files = delete_temp_files
         self.verbose = verbose
@@ -57,7 +58,7 @@ class CMotionCorrect():
         ##################
         # File preparation
         if self.verbose > 0:
-            print(f"Processing file: {self.base}{self.name}")
+            print(f"Motion correcting file: {self.base}{self.name}")
 
         # check array shape; convert if necessary
         self.convert_xyz_to_zxy()
@@ -66,7 +67,7 @@ class CMotionCorrect():
         # Process channels
         if locs is None:
             with h5.File(self.path, "r") as file:
-                locs = [f"{key}" for key in list(file["data/"].keys())]
+                locs = [f"{key}" for key in list(file[self.loc_in].keys())]
 
         if type(locs) == str:
             locs = [locs]
@@ -91,7 +92,7 @@ class CMotionCorrect():
             # decide whether to split files dependent on available RAM
             # file_size = os.stat(self.path).st_size
             with h5.File(self.path, "r") as file:
-                data = file[f"data/{loc}"]
+                data = file[f"{self.loc_in}{loc}"]
                 z, x, y = data.shape
                 byte_num = np.dtype(data.dtype).itemsize
                 array_size = z * x * y * byte_num
@@ -109,7 +110,7 @@ class CMotionCorrect():
                 # since we are not splitting we need to manually
                 # save the dimensions for the next steps
                 with h5.File(self.path, "r") as file:
-                    self.dimensions.append(file[f"data/{loc}"].shape)
+                    self.dimensions.append(file[f"{self.loc_in}{loc}"].shape)
                 self.files.append(self.path)
 
             # check if mmap already exists
@@ -147,8 +148,8 @@ class CMotionCorrect():
 
                 # Run correction
                 if self.verbose > 0:
-                    print("Starting motion correction ... [{}]".format(f"data/{loc}"))
-                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"data/{loc}", **opts.get_group('motion'))
+                    print("Starting motion correction ... [{}]".format(f"{self.loc_in}{loc}"))
+                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"{self.loc_in}{loc}", **opts.get_group('motion'))
                 mc.motion_correct(save_movie=True)
 
                 # stop cluster
@@ -204,7 +205,7 @@ class CMotionCorrect():
     def show_info(self):
         with h5.File(self.path, "r") as file:
             print(file.keys())
-            print(file["data/ast"].shape)
+            print(file[f"{self.loc_in}ast"].shape)
 
     def dtqdm(self, iterator, position=0, leave=True):
 
@@ -215,30 +216,28 @@ class CMotionCorrect():
 
     def convert_xyz_to_zxy(self, delete_original=True):
 
-        #TODO testing if this actually works
-
         # check if conversion is necessary
         with h5.File(self.path, "a") as file:
 
             if len(list(file.keys())) < 2:
                 file.create_dataset("dummy", dtype="i2", shape=(1, 1, 1))
 
-            key0 = list(file["data/"].keys())[0]
-            d1, d2, d3 = file[f"data/{key0}"].shape
-            if d2 == 1200 and d3 == 1200:
+            key0 = list(file[self.loc_in].keys())[0]
+            d1, d2, d3 = file[f"{self.loc_in}{key0}"].shape
+            if d2 == d3:
                 if self.verbose > 1:
                     print("Expected data shape found (ZXY)")
                 return True
 
         # convert data
         with h5.File(self.path, "a") as file:
-            for loc in file["data/"].keys():
+            for loc in file[self.loc_in].keys():
 
                 if self.verbose > 0:
                     print(f"Converting channel {loc} from xyz to zxy")
 
                 # get shape of original data set
-                xyz = file[f"data/{loc}"]
+                xyz = file[f"{self.loc_in}{loc}"]
                 X, Y, Z = xyz.shape
                 cx, cy, cz = xyz.chunks
 
@@ -269,12 +268,12 @@ class CMotionCorrect():
             with h5.File(self.path, "a") as file:
 
                 # remove
-                del file["data/"]
+                del file[self.loc_in]
 
                 # move
-                file.create_group('data')
+                file.create_group(self.loc_in.replace("/", ""))
                 for key in file["zxy/"].keys():
-                    file.move(f"zxy/{key}", f"data/{key}")
+                    file.move(f"zxy/{key}", f"{self.loc_in}{key}")
                 del file["zxy"]
 
     def split_h5_file(self, loc, split_file_size=2000):
@@ -282,7 +281,7 @@ class CMotionCorrect():
         # Load file
         with h5.File(self.path, "r") as file:
 
-            data = file[f"data/{loc}"]
+            data = file[f"{self.loc_in}{loc}"]
 
             Z, X, Y = data.shape
 
@@ -311,14 +310,14 @@ class CMotionCorrect():
                     chunk = data[start:stop, :, :]
 
                     with h5.File(name_out, "w") as temp:
-                        chunk_drive = temp.create_dataset(f"data/{loc}", shape=chunk.shape, dtype=data.dtype)
+                        chunk_drive = temp.create_dataset(f"{self.loc_in}{loc}", shape=chunk.shape, dtype=data.dtype)
                         chunk_drive[:, :, :] = chunk
                         temp.create_dataset("proc/dummy", shape=(1, 1, 1), dtype=data.dtype)
                         shape = chunk.shape
 
                 else:
                     with h5.File(name_out, "r") as temp:
-                        shape = temp[f"data/{loc}"].shape
+                        shape = temp[f"{self.loc_in}{loc}"].shape
 
                 c += 1
                 self.files.append(name_out)
@@ -446,7 +445,9 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True)
+    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True,
+                        loc_in="dwn/"
+                        )
     mc.run_motion_correction(ram_size_multiplier=40)
 
 
