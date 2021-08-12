@@ -146,7 +146,7 @@ class Downsampler():
                     _ = file.create_dataset("dummy", dtype="i2", shape=(1, 1, 1))
 
                 # transform and copy data to new shape
-                for start in self.dtqdm(range(0, Z, cz)):
+                for start in tqdm(range(0, Z, cz)):
 
                     stop = min(start+cz, Z)
 
