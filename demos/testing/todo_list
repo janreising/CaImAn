@@ -3,3 +3,6 @@
 3) motion correction -> mc/
 4) cnmfe -> cnmfe/
 5) detrend / dFF -> dFF/
+
+-> save movement adjustment (-3, +2) as well
+-> run AQUA
