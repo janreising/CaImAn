@@ -432,20 +432,25 @@ if __name__ == "__main__":
 
     input_file = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:", ["ifolder="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "local="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file>")
         sys.exit(2)
 
+    on_server = True
     for opt, arg in opts:
         if opt in ("-i", "--input_file"):
             input_file = arg
+
+        if opt in ("-l"):
+            on_server = False
+
 
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
 
     print("InputFile: ", input_file)
 
-    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True,
+    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True, on_server=on_server,
                         loc_in="dwn/"
                         )
     mc.run_motion_correction(ram_size_multiplier=40)

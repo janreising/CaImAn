@@ -38,6 +38,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
     # Yr, dims, T = cm.load_memmap(fname_new)
     # images = Yr.T.reshape((T,) + dims, order='F')
 
+    """
     print("Saving mmap ...")
     with h5.File(path) as file:
         print("Indices: {} - {}".format(indices.start, indices.stop))
@@ -65,6 +66,14 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
 
     images = temp
     dims = (x, y)
+
+    """
+
+    mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
+                               order='C', border_to_0=0, dview=None, slices=(indices, None, None))
+
+    Yr, dims, T = cm.load_memmap(mmap_name)
+    images = Yr.T.reshape((T,) + dims, order='C')
 
     print("shape: {}".format(images.shape))
 
@@ -211,14 +220,18 @@ if __name__ == "__main__":
 
     input_file = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:", ["ifolder="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "local="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file>")
         sys.exit(2)
 
+    on_server = True
     for opt, arg in opts:
         if opt in ("-i", "--input_file"):
             input_file = arg
+
+        if opt in ("-l"):
+            on_server = False
 
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
 
@@ -227,13 +240,19 @@ if __name__ == "__main__":
     # main(path=input_file, loc="mc/ast", save_tiff=True, in_memory=True)
     # main(path=input_file, loc="mc/neu", save_tiff=True, in_memory=True)
 
+    n_processes = None
+    if not on_server:
+        n_processes = 6
+    else:
+        n_processes = None
+
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
                                                      single_thread=False)
 
     print("Cluster started!")
 
     try:
-        steps = 1000
+        steps = 200
         with h5.File(input_file) as file:
             data = file["mc/ast"]
             z, x, y = data.shape
