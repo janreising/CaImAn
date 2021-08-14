@@ -4,6 +4,7 @@ import numpy as np
 import getopt
 import time
 import traceback
+import mmap
 
 import caiman as cm
 from caiman.source_extraction.cnmf import params as params
@@ -11,6 +12,7 @@ from caiman.utils.visualization import inspect_correlation_pnr
 from caiman.source_extraction import cnmf
 from caiman.source_extraction.cnmf.initialization import downscale
 import tifffile as tf
+from past.builtins import basestring
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,64 +22,20 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
     print("Path: ", path)
     print("Loc: ", loc)
 
-    # start the cluster
-    # try:
-    #     cm.stop_server()  # stop it if it was running
-    # except():
-    #     pass
-
-    bord_px = 0     # because border_nan == 'copy' in motion correction
-
-    # print("Saving mmap ...")
-    # order = 'C'
-    # mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
-    #                            order=order, border_to_0=0,
-    #                            slices=[indices, slice(0, 1200), slice(0, 1200)])
-    #
-    # # load memory mappable file
-    # Yr, dims, T = cm.load_memmap(fname_new)
-    # images = Yr.T.reshape((T,) + dims, order='F')
-
-    """
     print("Saving mmap ...")
-    with h5.File(path) as file:
-        print("Indices: {} - {}".format(indices.start, indices.stop))
-        data = file[loc][indices.start:indices.stop, :, :]
-        z, x, y = data.shape
-        print(f"Loaded shape: {z}x{x}x{y}")
 
-        # memmap__d1_1200_d2_1200_d3_1_order_C_frames_50_
-        order = 'C'
-        mmap_name = path + "_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_{}.{}-{}.mmap".format(
-            x, y, 1, order, z, loc.replace("/", "-"), indices.start, indices.stop)
+    # mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
+    #                            order='C', border_to_0=0, dview=None, slices=(indices, None, None))
 
-        temp = np.memmap(mmap_name, dtype=np.float32, order=order, mode='w+', shape=data.shape)
-        temp[:, :, :] = data
-
-        # data = np.reshape(data, (x*y, z))
-        # temp = np.memmap(mmap_name, dtype=np.float32, order=order, mode='w+', shape=(x*y, z))
-        # temp[:] = data
-
-        # del data
-        # del temp
-
-    # Yr, dims, T = cm.load_memmap(mmap_name)
-    # images = Yr.T.reshape((T,) + dims, order=order)
-
-    images = temp
-    dims = (x, y)
-
-    """
-
-    mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
-                               order='C', border_to_0=0, dview=None, slices=(indices, None, None))
+    mmap_name = save_memmap_slim(path, base_name='memmap_', var_name_hdf5=loc,
+                               order='C', slices=(indices, None, None))
 
     Yr, dims, T = cm.load_memmap(mmap_name)
     images = Yr.T.reshape((T,) + dims, order='C')
 
-    print("shape: {}".format(images.shape))
-
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
+
+    bord_px = 0
 
     p = 1  # order of the autoregressive system
     K = None  # upper bound on number of components per patch, in general None for 1p data
@@ -213,6 +171,250 @@ def get_reconstructed(estimates, imgs, include_bck=True):
     reconstructed = Y_rec + include_bck * B
     return reconstructed
 
+
+def save_memmap(filenames,
+                base_name='Yr',
+                # resize_fact=(1, 1, 1),
+                remove_init: int = 0,
+                idx_xy= None,
+                order: str = 'F',
+                var_name_hdf5: str = 'mov',
+                xy_shifts= None,
+                dview=None,
+                n_chunks: int = 100,
+                slices=None) -> str:
+
+    """ Efficiently write data from a list of tif files into a memory mappable file
+
+    Args:
+        filenames: list
+            list of tif files or list of numpy arrays
+
+        base_name: str
+            the base used to build the file name. IT MUST NOT CONTAIN "_"
+
+        resize_fact: tuple
+            x,y, and z downsampling factors (0.5 means downsampled by a factor 2)
+
+        remove_init: int
+            number of frames to remove at the begining of each tif file
+            (used for resonant scanning images if laser in rutned on trial by trial)
+
+        idx_xy: tuple size 2 [or 3 for 3D data]
+            for selecting slices of the original FOV, for instance
+            idx_xy = (slice(150,350,None), slice(150,350,None))
+
+        order: string
+            whether to save the file in 'C' or 'F' order
+
+        xy_shifts: list
+            x and y shifts computed by a motion correction algorithm to be applied before memory mapping
+
+        is_3D: boolean
+            whether it is 3D data
+
+        add_to_movie: floating-point
+            value to add to each image point, typically to keep negative values out.
+
+        border_to_0: (undocumented)
+
+        dview:       (undocumented)
+
+        n_chunks:    (undocumented)
+
+        slices: slice object or list of slice objects
+            slice can be used to select portion of the movies in time and x,y
+            directions. For instance
+            slices = [slice(0,200),slice(0,100),slice(0,100)] will take
+            the first 200 frames and the 100 pixels along x and y dimensions.
+    Returns:
+        fname_new: the name of the mapped file, the format is such that
+            the name will contain the frame dimensions and the number of frames
+
+    """
+    if not isinstance(filenames, list):
+        raise Exception('save_memmap: input should be a list of filenames')
+
+    if slices is not None:
+        slices = [slice(0, None) if sl is None else sl for sl in slices]
+
+    Ttot = 0
+    for idx, f in enumerate(filenames):
+
+        if isinstance(f, (basestring, list)):
+            Yr = cm.load(f, fr=1, in_memory=False, var_name_hdf5=var_name_hdf5)
+            print(type(Yr), Yr.shape)
+        else:
+            Yr = cm.movie(f)
+
+        if xy_shifts is not None:
+            Yr = Yr.apply_shifts(xy_shifts, interpolation='cubic', remove_blanks=False)
+
+        if slices is not None:
+            Yr = Yr[tuple(slices)]
+        else:
+            if idx_xy is None:
+                if remove_init > 0:
+                    Yr = Yr[remove_init:]
+            elif len(idx_xy) == 2:
+                Yr = Yr[remove_init:, idx_xy[0], idx_xy[1]]
+            else:
+                raise Exception('You need to set is_3D=True for 3D data)')
+                Yr = np.array(Yr)[remove_init:, idx_xy[0], idx_xy[1], idx_xy[2]]
+
+        # fx, fy, fz = resize_fact
+        # if fx != 1 or fy != 1 or fz != 1:
+        #     if 'movie' not in str(type(Yr)):
+        #         Yr = cm.movie(Yr, fr=1)
+        #     Yr = Yr.resize(fx=fx, fy=fy, fz=fz)
+
+        T, dims = Yr.shape[0], Yr.shape[1:]
+        Yr = np.transpose(Yr, list(range(1, len(dims) + 1)) + [0])
+        Yr = np.reshape(Yr, (np.prod(dims), T), order='F')
+        Yr = np.ascontiguousarray(Yr, dtype=np.float32) + np.float32(0.0001)
+
+        if idx == 0:
+
+
+            fname_tot = "{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(base_name,
+                dims[0], dims[1], 1, order, T
+            )
+
+            print("Saving to: ", fname_tot)
+
+            # if isinstance(f, str):
+            #     fname_tot = caiman.paths.fn_relocated(os.path.join(os.path.split(f)[0], fname_tot))
+
+            if len(filenames) > 1:
+                # big_mov = np.memmap(caiman.paths.fn_relocated(fname_tot),
+                #                     mode='w+',
+                #                     dtype=np.float32,
+                #                     shape=prepare_shape((np.prod(dims), T)),
+                #                     order=order)
+                # big_mov[:, Ttot:Ttot + T] = Yr
+                # del big_mov
+
+                print("Multiple files not implemented ...")
+                sys.exit(2)
+
+            else:
+            #     logging.debug('SAVING WITH numpy.tofile()')
+                Yr.tofile(fname_tot)
+        else:
+            big_mov = np.memmap(fname_tot,
+                                dtype=np.float32,
+                                mode='r+',
+                                shape=prepare_shape((np.prod(dims), Ttot + T)),
+                                order=order)
+
+            big_mov[:, Ttot:Ttot + T] = Yr
+            del big_mov
+
+        sys.stdout.flush()
+        # Ttot = Ttot + T
+        #
+        # fname_new = cm.paths.fn_relocated(fname_tot + f'_frames_{Ttot}_.mmap')
+        # try:
+        #     # need to explicitly remove destination on windows
+        #     os.unlink(fname_new)
+        # except OSError:
+        #     pass
+        # os.rename(fname_tot, fname_new)
+
+    return fname_tot
+
+
+def save_memmap_slim(filenames, base_name='Yr',
+                     remove_init: int = 0, idx_xy=None, order: str = 'F',
+                     var_name_hdf5: str = 'mov', xy_shifts=None, slices=None) -> str:
+
+    """ Efficiently write data from a list of tif files into a memory mappable file
+
+    Args:
+        filenames: list
+            list of tif files or list of numpy arrays
+
+        base_name: str
+            the base used to build the file name. IT MUST NOT CONTAIN "_"
+
+        resize_fact: tuple
+            x,y, and z downsampling factors (0.5 means downsampled by a factor 2)
+
+        remove_init: int
+            number of frames to remove at the begining of each tif file
+            (used for resonant scanning images if laser in rutned on trial by trial)
+
+        idx_xy: tuple size 2 [or 3 for 3D data]
+            for selecting slices of the original FOV, for instance
+            idx_xy = (slice(150,350,None), slice(150,350,None))
+
+        order: string
+            whether to save the file in 'C' or 'F' order
+
+        xy_shifts: list
+            x and y shifts computed by a motion correction algorithm to be applied before memory mapping
+
+        is_3D: boolean
+            whether it is 3D data
+
+        add_to_movie: floating-point
+            value to add to each image point, typically to keep negative values out.
+
+        border_to_0: (undocumented)
+
+        dview:       (undocumented)
+
+        n_chunks:    (undocumented)
+
+        slices: slice object or list of slice objects
+            slice can be used to select portion of the movies in time and x,y
+            directions. For instance
+            slices = [slice(0,200),slice(0,100),slice(0,100)] will take
+            the first 200 frames and the 100 pixels along x and y dimensions.
+    Returns:
+        fname_new: the name of the mapped file, the format is such that
+            the name will contain the frame dimensions and the number of frames
+
+    """
+
+    if isinstance(filenames, list):
+        f = filenames[0]
+    else:
+        f = filenames
+
+    if slices is not None:
+        slices = [slice(0, None) if sl is None else sl for sl in slices]
+
+    Yr = cm.load(f, fr=1, in_memory=False, var_name_hdf5=var_name_hdf5)
+
+    if xy_shifts is not None:
+        Yr = Yr.apply_shifts(xy_shifts, interpolation='cubic', remove_blanks=False)
+
+    if slices is not None:
+        Yr = Yr[tuple(slices)]
+    else:
+        if idx_xy is None:
+            if remove_init > 0:
+                Yr = Yr[remove_init:]
+        elif len(idx_xy) == 2:
+            Yr = Yr[remove_init:, idx_xy[0], idx_xy[1]]
+        else:
+            raise Exception('You need to set is_3D=True for 3D data)')
+            Yr = np.array(Yr)[remove_init:, idx_xy[0], idx_xy[1], idx_xy[2]]
+
+    T, dims = Yr.shape[0], Yr.shape[1:]
+    Yr = np.transpose(Yr, list(range(1, len(dims) + 1)) + [0])
+    Yr = np.reshape(Yr, (np.prod(dims), T), order='F')
+    Yr = np.ascontiguousarray(Yr, dtype=np.float32) + np.float32(0.0001)
+
+    fname_tot = "{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(base_name, dims[0], dims[1], 1, order, T)
+
+    Yr.tofile(fname_tot)
+    sys.stdout.flush()
+
+    return fname_tot
+
+
 if __name__ == "__main__":
 
     # base = "/media/carmichael/LaCie SSD/JR/data/ca_imaging/28.06.21/slice4/"
@@ -243,8 +445,10 @@ if __name__ == "__main__":
     n_processes = None
     if not on_server:
         n_processes = 6
+        steps = 200
     else:
         n_processes = None
+        steps = 400
 
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
                                                      single_thread=False)
@@ -252,7 +456,6 @@ if __name__ == "__main__":
     print("Cluster started!")
 
     try:
-        steps = 200
         with h5.File(input_file) as file:
             data = file["mc/ast"]
             z, x, y = data.shape
@@ -268,6 +471,11 @@ if __name__ == "__main__":
                  save_tiff=False, indices=slice(z0, z1))
             main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
                  save_tiff=False, indices=slice(z0, z1))
+
+    except Exception as err:
+        print(err)
+
+        traceback.print_exc()
 
     finally:
 
