@@ -105,7 +105,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
 
             new_loc = loc.replace("mc", "cnmfe")
             if new_loc not in file:
-                data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape)
+                data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape,
+                                           compression="gzip", chunks=(100, 100, 100), shuffle=True)
             else:
                 data = file[new_loc]
 
@@ -410,8 +411,8 @@ def save_memmap_slim(filenames, base_name='Yr',
     fname_tot = "{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(base_name, dims[0], dims[1], 1, order, T)
 
     Yr.tofile(fname_tot)
-    sys.stdout.flush()
 
+    sys.stdout.flush()
     return fname_tot
 
 
