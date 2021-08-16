@@ -445,7 +445,6 @@ if __name__ == "__main__":
         if opt in ("-l"):
             on_server = False
 
-
     assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
 
     print("InputFile: ", input_file)
