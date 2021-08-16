@@ -450,10 +450,10 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True, on_server=on_server,
+    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=False, on_server=on_server,
                         loc_in="dwn/"
                         )
-    mc.run_motion_correction(ram_size_multiplier=40)
+    mc.run_motion_correction(ram_size_multiplier=5)
 
 
 
