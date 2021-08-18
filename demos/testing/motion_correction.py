@@ -393,6 +393,7 @@ class CMotionCorrect():
             for p in self.files:
                 start = p.replace(self.base, "").replace(".h5", "")[-2]
 
+                found = False
                 for df in dir_files:
                     temp = df.split(os.sep)[-1]
 
@@ -402,7 +403,12 @@ class CMotionCorrect():
                         if ft not in self.mmaps:
                             self.mmaps.append(ft)
 
+                        found = True
+
                         continue
+
+                if not found:
+                    print(f"Couldn't find {p}\n\tstart:{start}, temp:{temp}")
 
         else:
             for df in dir_files:
@@ -466,7 +472,7 @@ if __name__ == "__main__":
     try:
         opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "local="])
     except getopt.GetoptError:
-        print("calpack.py -i <input_file>")
+        print("motion_correction.py -i <input_file>")
         sys.exit(2)
 
     on_server = True
