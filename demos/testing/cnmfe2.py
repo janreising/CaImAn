@@ -15,7 +15,7 @@ import tifffile as tf
 from past.builtins import basestring
 from tqdm import tqdm
 
-# from pbullet import Comm
+from pbullet import Comm
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -540,7 +540,7 @@ if __name__ == "__main__":
         # Finialization
         t1 = (time.time() - t0) / 60
         print("CMFE finished in {:.2f}".format(t1))
-        # comm.push_text("CMFE done!", f"CMFE done for {input_file}. It took {t1:.2f}min")
+        comm.push_text("CMFE done!", f"CMFE done for {input_file}. It took {t1:.2f}min")
 
     except Exception as err:
         print(err)
