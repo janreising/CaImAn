@@ -68,7 +68,7 @@ class CMotionCorrect():
             print(f"Motion correcting file: {self.base}{self.name}")
 
         # check array shape; convert if necessary
-        self.convert_xyz_to_zxy()
+        # self.convert_xyz_to_zxy() # TODO actually fix that. It is not correct anymore to check like that function does
 
         ##################
         # Process channels
