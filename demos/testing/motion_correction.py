@@ -312,6 +312,8 @@ class CMotionCorrect():
 
             Z, X, Y = data.shape
 
+            print(f"Z:{Z} x X:{X} x Y:{Y}")
+
             if frames_per_file is None:
                 array_size = Z * X * Y * np.dtype(data.dtype).itemsize
                 ram_size = psutil.virtual_memory().total
@@ -319,7 +321,7 @@ class CMotionCorrect():
                 splits = max(2, int(array_size / (ram_size / ram_size_multiplier)))
                 split_size = int(Z / splits)
             else:
-                split_size=frames_per_file
+                split_size = frames_per_file
 
             # create names for file split
             iterator = []
@@ -354,6 +356,8 @@ class CMotionCorrect():
                 c += 1
                 self.files.append(name_out)
                 self.dimensions.append(shape)
+
+                print(f"split shape: {shape}")
 
         return True
 
