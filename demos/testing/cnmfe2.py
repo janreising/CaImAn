@@ -13,11 +13,14 @@ from caiman.source_extraction import cnmf
 from caiman.source_extraction.cnmf.initialization import downscale
 import tifffile as tf
 from past.builtins import basestring
+from tqdm import tqdm
+
+# from pbullet import Comm
 
 import warnings
 warnings.filterwarnings("ignore")
 
-def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
+def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
     print("Path: ", path)
     print("Loc: ", loc)
@@ -27,11 +30,12 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
     # mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
     #                            order='C', border_to_0=0, dview=None, slices=(indices, None, None))
 
-    mmap_name = save_memmap_slim(path, base_name='memmap_', var_name_hdf5=loc,
+    mmap_name = save_memmap_h5(path, base_name='memmap_', var_name_hdf5=loc,
                                order='C', slices=(indices, None, None))
 
     Yr, dims, T = cm.load_memmap(mmap_name)
     images = Yr.T.reshape((T,) + dims, order='C')
+    print("dType images: ", type(images))
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
 
@@ -90,7 +94,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None, ):
                                           'ssub_B': ssub_B,
                                           'ring_size_factor': ring_size_factor,
                                           'del_duplicates': True,  # whether to remove duplicates from initialization
-                                          'border_pix': bord_px  # number of pixels to not consider in the borders)
+                                          'border_pix': bord_px,  # number of pixels to not consider in the borders)
+                                          'use_cuda': use_cuda,
                                           })
     try:
         # %% RUN CNMF ON PATCHES
@@ -383,6 +388,8 @@ def save_memmap_slim(filenames, base_name='Yr',
     else:
         f = filenames
 
+    root = os.sep.join(f.split(os.sep)[:-1]) + os.sep
+
     if slices is not None:
         slices = [slice(0, None) if sl is None else sl for sl in slices]
 
@@ -408,11 +415,64 @@ def save_memmap_slim(filenames, base_name='Yr',
     Yr = np.reshape(Yr, (np.prod(dims), T), order='F')
     Yr = np.ascontiguousarray(Yr, dtype=np.float32) + np.float32(0.0001)
 
-    fname_tot = "{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(base_name, dims[0], dims[1], 1, order, T)
+    fname_tot = "{}{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(root, base_name, dims[0], dims[1], 1, order, T)
+    print(fname_tot)
 
     Yr.tofile(fname_tot)
 
     sys.stdout.flush()
+    return fname_tot
+
+def save_memmap_h5(filenames, base_name='Yr',
+                     remove_init: int = 0, idx_xy=None, order: str = 'F',
+                     var_name_hdf5: str = 'mov', xy_shifts=None, slices=None) -> str:
+
+    if isinstance(filenames, list):
+        f = filenames[0]
+    else:
+        f = filenames
+
+    #TODO implement slices
+    if slices is not None:
+        slices = [slice(0, None) if sl is None else sl for sl in slices]
+
+    with h5.File(f, "r") as file:
+
+        data = file[var_name_hdf5]
+        Z, X, Y = data.shape
+        cz, cx, cy = data.chunks
+
+        root = os.sep.join(f.split(os.sep)[:-1]) + os.sep
+        fname_tot = "{}{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(root, base_name, X, Y, 1,
+                                                                             order, Z)
+
+        out = np.memmap(fname_tot, dtype=np.float32, mode="w+", shape=(X * Y, Z))
+
+        for z0 in tqdm(range(0, Z, cz)):
+            for x0 in range(0, X, cx):
+                for y0 in range(0, Y, cy):
+
+                    z1 = min(Z, z0 + cz)
+                    x1 = min(X, x0 + cx)
+                    y1 = min(Y, y0 + cy)
+
+                    chunk = data[z0:z1, x0:x1, y0:y1]
+
+                    chz, chx, chy = chunk.shape
+
+                    for a0 in range(chz):
+                        for c0 in range(chy):  # TODO change to cy
+
+                            col_section = chunk[a0, :, c0]
+
+                            ind0 = int(x0 / cx * cx + y0 * X + c0 * X)
+                            ind1 = ind0 + chx
+
+                            indx0 = int(z0 / cz * cz + a0)
+                            out[ind0:ind1, indx0] = col_section + np.float32(0.0001)
+
+                    sys.stdout.flush()
+
     return fname_tot
 
 
@@ -447,36 +507,47 @@ if __name__ == "__main__":
     if not on_server:
         n_processes = 6
         steps = 200
+        use_cuda = False
     else:
         n_processes = None
         steps = 400
+        use_cuda = False
 
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
                                                      single_thread=False)
-
+    # comm = Comm()
     print("Cluster started!")
 
     try:
+
         with h5.File(input_file) as file:
             data = file["mc/ast"]
             z, x, y = data.shape
 
-        print(f"Shape: {x}x{y}x{z}")
+        print(f"Shape (xyz): {x}x{y}x{z}")
+        t0 = time.time()
 
-        for z0 in range(0, z, steps):
+        # for z0 in range(0, z, steps):
+        #
+        #     z1 = min(z, z0+steps)
+        #     print(f"Processing {z0} to {z1}")
 
-            z1 = min(z, z0+steps)
-            print(f"Processing {z0} to {z1}")
+        main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
+             save_tiff=False)  #, indices=slice(z0, z1))
+        main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
+             save_tiff=False)  #, indices=slice(z0, z1))
 
-            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
-            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes,
-                 save_tiff=False, indices=slice(z0, z1))
+        # Finialization
+        t1 = (time.time() - t0) / 60
+        print("CMFE finished in {:.2f}".format(t1))
+        # comm.push_text("CMFE done!", f"CMFE done for {input_file}. It took {t1:.2f}min")
 
     except Exception as err:
         print(err)
 
         traceback.print_exc()
+
+        # comm.push_text("Error in CMFE!", f"Exception in {input_file}")
 
     finally:
 

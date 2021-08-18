@@ -8,6 +8,9 @@ import tifffile as tf
 from tqdm import tqdm
 import getopt
 from skimage.transform import resize
+import time
+
+from pbullet import Comm
 
 import cv2
 try:
@@ -53,7 +56,11 @@ class CMotionCorrect():
         self.dimensions = []
         self.mmaps = []
 
-    def run_motion_correction(self, ram_size_multiplier=5, locs=None, save_sample=False):
+        self.comm = Comm()
+
+    def run_motion_correction(self, ram_size_multiplier=5, frames_per_file=None, locs=None, save_sample=False):
+
+        t0 = time.time()
 
         ##################
         # File preparation
@@ -91,33 +98,48 @@ class CMotionCorrect():
 
             # decide whether to split files dependent on available RAM
             # file_size = os.stat(self.path).st_size
-            with h5.File(self.path, "r") as file:
-                data = file[f"{self.loc_in}{loc}"]
-                z, x, y = data.shape
-                byte_num = np.dtype(data.dtype).itemsize
-                array_size = z * x * y * byte_num
-            ram_size = psutil.virtual_memory().total
-            if self.verbose > 0:
-                print("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
-                                                           ram_size / 1000 / 1024 / 1024,
-                                                           array_size / ram_size * 100))
-
-            if ram_size < array_size * ram_size_multiplier:
-                if self.verbose > 0:
-                    print("RAM not sufficient. Splitting ...")
-                self.split_h5_file(loc)
-            else:
-                # since we are not splitting we need to manually
-                # save the dimensions for the next steps
+            if frames_per_file is None:
                 with h5.File(self.path, "r") as file:
-                    self.dimensions.append(file[f"{self.loc_in}{loc}"].shape)
-                self.files.append(self.path)
+                    data = file[f"{self.loc_in}{loc}"]
+                    z, x, y = data.shape
+                    byte_num = np.dtype(data.dtype).itemsize
+                    array_size = z * x * y * byte_num
+                ram_size = psutil.virtual_memory().total
+                if self.verbose > 0:
+                    print("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
+                                                               ram_size / 1000 / 1024 / 1024,
+                                                               array_size / ram_size * 100))
+
+                if ram_size < array_size * ram_size_multiplier:
+                    if self.verbose > 0:
+                        print("RAM not sufficient. Splitting ...")
+                    self.split_h5_file(loc)
+                else:
+                    # since we are not splitting we need to manually
+                    # save the dimensions for the next steps
+                    with h5.File(self.path, "r") as file:
+                        self.dimensions.append(file[f"{self.loc_in}{loc}"].shape)
+                    self.files.append(self.path)
+            else:
+                self.split_h5_file(loc, frames_per_file=frames_per_file)
 
             # check if mmap already exists
             files_to_process = [file for file in self.files if self.mmap_exists(file) is None]
 
+            ############
+            # Parameters
+
+            n_processes = None
+            if not self.on_server:
+                print("Assuming local execution.")
+                n_processes = 6
+                use_cuda = True
+            else:
+                n_processes = None
+                use_cuda = False
+
             if len(files_to_process) > 0:
-                # Parameters
+
                 opts_dict = {
                     'fnames': files_to_process,
                     'fr': self.fr,  # sample rate of the movie
@@ -129,6 +151,7 @@ class CMotionCorrect():
                     'overlaps': self.overlaps,  # overlap between pathes (size of patch strides+overlaps)
                     'max_deviation_rigid': self.max_deviation_rigid,  # maximum deviation allowed for patch with respect to rigid shifts
                     'border_nan': self.border_nan,
+                    'use_cuda': use_cuda,
                 }
 
                 opts = volparams(params_dict=opts_dict)
@@ -137,19 +160,14 @@ class CMotionCorrect():
                 # Motion Correction
 
                 # start cluster for parallel processing
-                n_processes = None
-                if not self.on_server:
-                    n_processes = 6
-                else:
-                    n_processes = None
-
                 c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
                                                                  single_thread=False)
 
                 # Run correction
                 if self.verbose > 0:
                     print("Starting motion correction ... [{}]".format(f"{self.loc_in}{loc}"))
-                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"{self.loc_in}{loc}", **opts.get_group('motion'))
+                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"{self.loc_in}{loc}",
+                                   **opts.get_group('motion'))
                 mc.motion_correct(save_movie=True)
 
                 # stop cluster
@@ -175,20 +193,29 @@ class CMotionCorrect():
 
                 if len(self.files) > 1:
                     for file in self.files:
+                        print(f"Removing {file}")
                         try:
                             os.remove(file)
+                            print("\t ... removed")
                         except FileNotFoundError:
                             print(f"File: {file} already deleted")
                 self.files = []
                 self.dimensions = []
 
                 for file in self.mmaps:
+                    print(f"Removing {file}")
                     try:
                         os.remove(file)
+                        print("\t ... removed")
                     except FileNotFoundError:
                         print(f"File: {file} already deleted")
                         
                 self.mmaps = []
+
+        # Finialization
+        t1 = (time.time() - t0) / 60
+        print("Motion correction finished in {:.2f}".format(t1))
+        self.comm.push_text("MC done!", f"Motion correctio done for {self.path}. It took {t1:.2f}min")
 
     @staticmethod
     def deconstruct_path(path):
@@ -276,7 +303,7 @@ class CMotionCorrect():
                     file.move(f"zxy/{key}", f"{self.loc_in}{key}")
                 del file["zxy"]
 
-    def split_h5_file(self, loc, split_file_size=2000):
+    def split_h5_file(self, loc, ram_size_multiplier=5, frames_per_file=None):
 
         # Load file
         with h5.File(self.path, "r") as file:
@@ -285,14 +312,19 @@ class CMotionCorrect():
 
             Z, X, Y = data.shape
 
-            names = []
-            splits = int(os.stat(self.path).st_size / (split_file_size * 1024 * 1024))
-            split_size = int(Z/splits)
+            if frames_per_file is None:
+                array_size = Z * X * Y * np.dtype(data.dtype).itemsize
+                ram_size = psutil.virtual_memory().total
+
+                splits = max(2, int(array_size / (ram_size / ram_size_multiplier)))
+                split_size = int(Z / splits)
+            else:
+                split_size=frames_per_file
 
             # create names for file split
             iterator = []
             for start in list(range(0, Z, split_size)):
-                iterator.append([start, min(start+split_size, Z)])
+                iterator.append([start, min(start + split_size, Z)])
 
             # combine last two splits if final file has too few frames
             if iterator[-1][1] - iterator[-1][0] < 100:
@@ -449,10 +481,10 @@ if __name__ == "__main__":
 
     print("InputFile: ", input_file)
 
-    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=False, on_server=on_server,
-                        loc_in="dwn/"
+    mc = CMotionCorrect(path=input_file, verbose=3, delete_temp_files=True, on_server=on_server,
+                        # loc_in="dwn/"
                         )
-    mc.run_motion_correction(ram_size_multiplier=5)
+    mc.run_motion_correction(ram_size_multiplier=None, frames_per_file=500)
 
 
 

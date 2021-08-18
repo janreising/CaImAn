@@ -1,6 +1,6 @@
 #conda activate caiman
 
-path="/media/carmichael/1TB/delete/2-40X-loc1.h5"
+path='ca_imaging/ca_imaging/19.07.21/slice3/3-40X-loc1.h5.copy'
 
 python downsample.py -i $path
 python motion_correction.py -i $path
