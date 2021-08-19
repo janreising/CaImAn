@@ -43,6 +43,7 @@ from scipy.ndimage import center_of_mass
 import numbers
 import scipy.sparse as sp
 
+
 import cp_cnmfe_2 as CNMFE_2
 import cp_cnmfe_3 as CNMFE_3
 
