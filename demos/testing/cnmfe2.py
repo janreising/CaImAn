@@ -35,7 +35,6 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
     Yr, dims, T = cm.load_memmap(mmap_name)
     images = Yr.T.reshape((T,) + dims, order='C')
-    print("dType images: ", type(images))
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
 
@@ -480,7 +479,7 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
                     chz, chx, chy = chunk.shape
 
                     for a0 in range(chz):
-                        for c0 in range(chy):  # TODO change to cy
+                        for c0 in range(chy):  # TODO change to cy; otherwise image is rotated and horizontally mirrored
 
                             col_section = chunk[a0, :, c0]
 
@@ -488,6 +487,7 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
                             ind1 = ind0 + chx
 
                             indx0 = int(z0 / cz * cz + a0)
+                            print(f"ind0:{ind0} x ind1:{ind1} , indx0:{indx0}")
                             out[ind0:ind1, indx0] = col_section + np.float32(0.0001)
 
                     sys.stdout.flush()
@@ -551,8 +551,8 @@ if __name__ == "__main__":
             z1 = min(z, z0+steps)
             print(f"Processing {z0} to {z1}")
 
-            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
-            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+            main(path=input_file, loc="mc2/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+            main(path=input_file, loc="mc2/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
 
         # Finialization
         t1 = (time.time() - t0) / 60

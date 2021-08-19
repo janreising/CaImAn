@@ -48,7 +48,7 @@ if __name__ == "__main__":
     ############
     # Processing
 
-    assert output_.endswith(".h5"), f"at this stage we should be working with an .h5 file. However: {input_}"
+    assert input_.endswith(".h5"), f"at this stage we should be working with an .h5 file. However: {input_}"
     keys = []
     with h5.File(input_, "r") as file:
         for key in list(file.keys()):

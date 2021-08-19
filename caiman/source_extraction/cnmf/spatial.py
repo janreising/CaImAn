@@ -1121,7 +1121,7 @@ def creatememmap(Y, Cf, dview):
            """
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:
         tmpf = os.environ.get('SLURM_SUBMIT_DIR')
-        print(f'cluster temporary folder: {tmpf}')
+        # print(f'cluster temporary folder: {tmpf}')
         folder = tempfile.mkdtemp(dir=tmpf)
     else:
         folder = tempfile.mkdtemp()
