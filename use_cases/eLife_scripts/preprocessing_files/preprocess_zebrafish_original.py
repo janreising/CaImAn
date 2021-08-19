@@ -129,7 +129,7 @@ initbatch = 200
 # maximum number of expected components used for memory pre-allocation (exaggerate here)
 expected_comps = 600
 # initial number of components
-# number of timesteps to consider when testing new neuron candidates
+# number of timesteps to consider when to_julia new neuron candidates
 N_samples = np.ceil(fr * decay_time)
 # exceptionality threshold
 thresh_fitness_raw = scipy.special.log_ndtr(-min_SNR) * N_samples
@@ -462,7 +462,7 @@ if ploton:
     from scipy.stats import norm
 
     min_SNR = 2.5
-    N_samples = np.ceil(fr*decay_time).astype(np.int)   # number of timesteps to consider when testing new neuron candidates
+    N_samples = np.ceil(fr*decay_time).astype(np.int)   # number of timesteps to consider when to_julia new neuron candidates
     fitness, erf, noi, what = compute_event_exceptionality(C+cnm2.noisyC[cnm2.gnb:cnm2.M, t - t // epochs:t],N=N_samples)
     COMP_SNR = -norm.ppf(np.exp(erf/ N_samples))
     COMP_SNR  = np.vstack([np.ones_like(f),COMP_SNR])

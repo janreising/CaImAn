@@ -255,7 +255,7 @@ epochs = params_movie[ind_dataset]['epochs']
 # total length of all files (if not known use a large number, then truncate at the end)
 T1 = params_movie[ind_dataset]['T1'] * len(fls) * epochs
 
-# number of timesteps to consider when testing new neuron candidates
+# number of timesteps to consider when to_julia new neuron candidates
 N_samples = np.ceil(params_movie[ind_dataset]['fr']
                     * params_movie[ind_dataset]['decay_time'])
 # *np.sqrt(T1/2500.)                                      # adaptive way to set threshold (will be equal to min_SNR)

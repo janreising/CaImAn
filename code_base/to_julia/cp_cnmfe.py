@@ -266,7 +266,7 @@ class CNMF(object):
                 simultaneously demixing and denoising/deconvolving.
 
             N_samples_exceptionality : int, optional
-                Number of consecutives intervals to be considered when testing new neuron candidates
+                Number of consecutives intervals to be considered when to_julia new neuron candidates
 
             del_duplicates: bool
                 whether to delete the duplicated created in initialization
@@ -604,7 +604,7 @@ class CNMF(object):
                     'You need to provide a memory mapped file as input if you use patches!!')
 
             self.estimates.A, self.estimates.C, self.estimates.YrA, self.estimates.b, self.estimates.f, \
-                self.estimates.sn, self.estimates.optional_outputs = run_CNMF_patches(
+                self.estimates.sn, self.estimates.optional_outputs = CNMFE_2.run_CNMF_patches(
                     images.filename, self.dims + (T,), self.params,
                     dview=self.dview, memory_fact=self.params.get('patch', 'memory_fact'),
                     gnb=self.params.get('init', 'nb'), border_pix=self.params.get('patch', 'border_pix'),

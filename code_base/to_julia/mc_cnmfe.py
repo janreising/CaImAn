@@ -352,7 +352,7 @@ class PreProcessor():
 
     def convert_xyz_to_zxy(self, delete_original=True):
 
-        #TODO testing if this actually works
+        #TODO to_julia if this actually works
 
         # check if conversion is necessary
         with h5.File(self.path, "a") as file:

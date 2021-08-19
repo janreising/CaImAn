@@ -40,7 +40,7 @@ os.environ['OMP_NUM_THREADS'] = '1'
 # to come up with a similar subset of files that setup.py would install for a normal pip install,
 # focused around the data directory.
 extra_files = ['test_demos.sh', 'README.md', 'LICENSE.txt']
-extra_dirs = ['bin', 'demos', 'docs', 'model', 'testdata']
+extra_dirs = ['bin', 'code_base', 'docs', 'model', 'testdata']
 
 # standard_movies: These are needed by the demo
 standard_movies = [
@@ -115,7 +115,7 @@ def do_run_nosetests(targdir: str) -> None:
 
 def do_run_coverage_nosetests(targdir: str) -> None:
     # Run nosetests, but invoke coverage so we get statistics on how much our tests actually exercise
-    # the code. It would probably be a mistake to do CI testing around these figures (as we often add things to
+    # the code. It would probably be a mistake to do CI to_julia around these figures (as we often add things to
     # the codebase before they're fully fleshed out), but we can at least make the command below easier to invoke
     # with this frontend.
     #
@@ -146,7 +146,7 @@ def do_nt_run_demotests(targdir: str) -> None:
     # is a terrible idea. So we'll do a minimal implementation of run_demos for
     # windows inline here.
     os.environ['MPLCONFIG'] = 'ps'             # Not sure this does anything on windows
-    demos = glob.glob('demos/general/*.py')    # Should still work on windows I think
+    demos = glob.glob('code_base/general/*.py')    # Should still work on windows I think
     for demo in demos:
         print("========================================")
         print("Testing " + str(demo))
@@ -210,7 +210,7 @@ def system_diagnose() -> None:
 def runcmd(cmdlist: List[str], ignore_error: bool = False, verbose: bool = True) -> Tuple[str, str, int]:
     # In most of my codebases, runcmd saves and returns the output.
     # Here I've modified it to send right to stdout, because nothing
-    # uses the output and because the demos sometimes have issues
+    # uses the output and because the code_base sometimes have issues
     # with hanging forever
     if verbose:
         print("runcmd[" + " ".join(cmdlist) + "]")

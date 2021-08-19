@@ -88,7 +88,7 @@ global_params = {'min_SNR': 0.8,       # minimum SNR when considering adding a n
                  'min_num_trial': 10,  # maximum number of candidate components per frame
                  'use_peak_max': True,
                  'thresh_CNN_noisy': .65,  # CNN threshold for accepting a candidate component
-                 'sniper_mode': True,      # use the CNN for testing candidate components
+                 'sniper_mode': True,      # use the CNN for to_julia candidate components
                  'update_freq': 250
                  }
 

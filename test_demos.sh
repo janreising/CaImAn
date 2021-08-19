@@ -3,16 +3,16 @@
 ##########################
 # test_demos.sh
 #
-# This is intended to test the python (.py) demos
+# This is intended to test the python (.py) code_base
 #
 # dependencies:
 #   xvfb-run - This starts a dummy X server for anything that might
-#              need to plot things or show movies. Note that any demos
+#              need to plot things or show movies. Note that any code_base
 #              we test MUST NOT wait for input while showing a movie,
 #              because in the test environment nobody will show up to provide
 #              that input (like clicking things or hitting q)
 
-# Make sure the xvfb-run command exists before starting demos, so we can give a better
+# Make sure the xvfb-run command exists before starting code_base, so we can give a better
 # error message
 OS=$(uname -s)
 
@@ -37,7 +37,7 @@ export MPLCONFIG=ps
 
 cd `dirname ${BASH_SOURCE[0]}`
 
-for demo in demos/general/*; do
+for demo in code_base/general/*; do
 	if [ $demo == "demos/general/demo_behavior.py" ]; then
 		echo "	Skipping tests on $demo: This is interactive"
 	elif [ $demo == "demos/general/demo_pipeline_voltage_imaging.py" ]; then

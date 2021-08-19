@@ -22,7 +22,7 @@ with open('VERSION', 'r') as verfile:
     version = verfile.read().strip()
 
 ############
-# This stanza asks for caiman datafiles (demos, movies, ...) to be stashed in "share/caiman", either
+# This stanza asks for caiman datafiles (code_base, movies, ...) to be stashed in "share/caiman", either
 # in the system directory if this was installed with a system python, or inside the virtualenv/conda
 # environment dir if this was installed with a venv/conda python. This ensures:
 # 1) That they're present somewhere on the system if Caiman is installed this way, and
@@ -33,7 +33,7 @@ with open('VERSION', 'r') as verfile:
 # package that made them, we can switch to using the pkg_resources API.
 
 binaries = ['caimanmanager.py']
-extra_dirs = ['bin', 'demos', 'docs', 'model']
+extra_dirs = ['bin', 'code_base', 'docs', 'model']
 data_files = [('share/caiman', ['LICENSE.txt', 'README.md', 'test_demos.sh', 'VERSION']),
               ('share/caiman/example_movies', ['example_movies/data_endoscope.tif', 'example_movies/demoMovie.tif']),
               ('share/caiman/testdata', ['testdata/groundtruth.npz', 'testdata/example.npz']),

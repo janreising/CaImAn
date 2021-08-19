@@ -120,7 +120,7 @@ initbatch = 200
 # maximum number of expected components used for memory pre-allocation (exaggerate here)
 expected_comps = 600
 # initial number of components
-# number of timesteps to consider when testing new neuron candidates
+# number of timesteps to consider when to_julia new neuron candidates
 N_samples = np.ceil(fr * decay_time)
 # exceptionality threshold
 thresh_fitness_raw = scipy.special.log_ndtr(-min_SNR) * N_samples

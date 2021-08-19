@@ -3,7 +3,7 @@
 """
 This file is used to measure computational performance of VolPy.
 This file produces Fig6 for Volpy paper.
-Note that if testing with 1 CPU, make sure dview=None.
+Note that if to_julia with 1 CPU, make sure dview=None.
 @author: caichangjia
 """
 #%% Run memory tests for VolPy

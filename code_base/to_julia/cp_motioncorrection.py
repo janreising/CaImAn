@@ -2107,7 +2107,7 @@ def get_tempdir() -> str:
 def caiman_datadir() -> str:
     """
 	The datadir is a user-configurable place which holds a user-modifiable copy of
-	data the Caiman libraries need to function, alongside code demos and other things.
+	data the Caiman libraries need to function, alongside code code_base and other things.
 	This is meant to be separate from the library install of Caiman, which may be installed
 	into the global python library path (or into a conda path or somewhere else messy).
 	"""

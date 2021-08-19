@@ -169,7 +169,7 @@ class CNMFParams(object):
                  only_init_patch=True, var_name_hdf5='mov', max_merge_area=None,
                  use_corr_img=False, params_dict={},
                  ):
-        """Class for setting the processing parameters. All parameters for CNMF, online-CNMF, quality testing,
+        """Class for setting the processing parameters. All parameters for CNMF, online-CNMF, quality to_julia,
         and motion correction can be set here and then used in the various processing pipeline steps.
         The prefered way to set parameters is by using the set function, where a subclass is determined and a
         dictionary is passed. The whole dictionary can also be initialized at once by passing a dictionary params_dict
@@ -642,7 +642,7 @@ class CNMFParams(object):
                 Derivative test for detecting traces
 
             thresh_fitness_raw: float (negative), default: computed from min_SNR
-                Threshold value for testing trace SNR
+                Threshold value for to_julia trace SNR
 
             thresh_overlap: float, default: 0.5
                 Intersection-over-Union space overlap threshold for screening new components
@@ -943,7 +943,7 @@ class CNMFParams(object):
             'movie_name_online': 'online_movie.mp4',  # filename of saved movie (appended to directory where data is located)
             'normalize': False,                # normalize frame
             'n_refit': n_refit,                # Additional iterations to simultaneously refit
-            # path to CNN model for testing new comps
+            # path to CNN model for to_julia new comps
             'num_times_comp_updated': num_times_comp_updated,
             'opencv_codec': 'H264',            # FourCC video codec for saving movie. Check http://www.fourcc.org/codecs.php
             'path_to_model': os.path.join(caiman_datadir(), 'model',
