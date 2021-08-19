@@ -7,7 +7,7 @@ def main(path):
     file = h5.File(path, "a")
     for key in list(file.keys()):
 
-        if key not in ["data", "dummy"]:
+        if key not in ["data", "dummy", "meta"]:
             del file[key]
 
     print(file.keys())

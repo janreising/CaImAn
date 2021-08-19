@@ -400,6 +400,7 @@ class CMotionCorrect():
                 found = False
                 for df in dir_files:
                     temp = df.split(os.sep)[-1]
+                    print(f"\t- start:{start} temp:{temp}")
 
                     if temp.startswith(start) and temp.endswith(".mmap"):
                         ft = f"{self.base}{df}"
@@ -408,6 +409,7 @@ class CMotionCorrect():
                             self.mmaps.append(ft)
 
                         found = True
+                        print(f"\t\tx Found: {df}")
 
                         continue
 
