@@ -109,3 +109,5 @@ if __name__ == "__main__":
         dview.terminate()
         cm.stop_server()
 
+        print("*MASTER* All done!")
+

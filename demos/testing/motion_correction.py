@@ -440,10 +440,7 @@ class CMotionCorrect():
         spath = spath.replace(self.base, "").replace(".h5", "")[:-2]
 
         for fi in os.listdir(self.base):
-            print(f"\t{spath}\n\t{fi}")
             if fi.endswith(".mmap") and fi.startswith(spath):
-                print(f"\t{spath}\n\t{fi}")
-                print(f"Found!")
                 return fi
 
         print(f"Couldn't find mmap: {spath}")
