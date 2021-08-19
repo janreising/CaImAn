@@ -30,7 +30,8 @@ class CMotionCorrect():
     def __init__(self, path,
                  loc_out="mc/", loc_in="data/", on_server=True, verbose=0, delete_temp_files=True,
                  fr=10, pw_rigid=False, max_shifts=(50, 50), gSig_filt=(20, 20),
-                 strides=(48, 48), overlaps=(24, 24), max_deviation_rigid=3, border_nan='copy'
+                 strides=(48, 48), overlaps=(24, 24), max_deviation_rigid=3, border_nan='copy',
+                 dview=None,
                  ):
 
         self.path = path
@@ -57,6 +58,8 @@ class CMotionCorrect():
         self.mmaps = []
 
         self.comm = Comm()
+
+        self.dview = dview
 
     def run_motion_correction(self, ram_size_multiplier=5, frames_per_file=None, locs=None, save_sample=False):
 
@@ -160,8 +163,11 @@ class CMotionCorrect():
                 # Motion Correction
 
                 # start cluster for parallel processing
-                c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
+                if self.dview is None:
+                    _, dview, _ = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
                                                                  single_thread=False)
+                else:
+                    dview = self.dview
 
                 # Run correction
                 if self.verbose > 0:
@@ -171,7 +177,8 @@ class CMotionCorrect():
                 mc.motion_correct(save_movie=True)
 
                 # stop cluster
-                cm.stop_server(dview=dview)
+                if self.dview is None:
+                    cm.stop_server(dview=dview)
 
             ####################
             # Convert mmap to h5
@@ -433,7 +440,7 @@ class CMotionCorrect():
         spath = spath.replace(self.base, "").replace(".h5", "")[:-2]
 
         for fi in os.listdir(self.base):
-            print(f"\t{spath}\n\tfi")
+            print(f"\t{spath}\n\t{fi}")
             if fi.endswith(".mmap") and (spath in fi):
                 print(f"\t\tFound!")
                 return fi

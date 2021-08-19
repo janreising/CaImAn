@@ -423,18 +423,12 @@ def save_memmap_slim(filenames, base_name='Yr',
     sys.stdout.flush()
     return fname_tot
 
-def save_memmap_h5(filenames, base_name='Yr',
-                     remove_init: int = 0, idx_xy=None, order: str = 'F',
-                     var_name_hdf5: str = 'mov', xy_shifts=None, slices=None) -> str:
+def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: str = 'mov', slices=None) -> str:
 
     if isinstance(filenames, list):
         f = filenames[0]
     else:
         f = filenames
-
-    #TODO implement slices
-    if slices is not None:
-        slices = [slice(0, None) if sl is None else sl for sl in slices]
 
     with h5.File(f, "r") as file:
 
@@ -442,15 +436,40 @@ def save_memmap_h5(filenames, base_name='Yr',
         Z, X, Y = data.shape
         cz, cx, cy = data.chunks
 
+        # indice selection
+        slz0, slz1 = 0, Z
+        slx0, slx1 = 0, X
+        sly0, sly1 = 0, Y
+        if slices is not None:
+            slz, slx, sly = slices
+
+            if slz is not None:
+                slz0, slz1 = slz.start, slz.stop
+            if slx is not None:
+                slx0, slx1 = slx.start, slx.stop
+            if sly is not None:
+                sly0, sly1 = sly.start, sly.stop
+
+        Z = min(slz1, Z)
+        X = min(slx1, X)
+        Y = min(sly1, Y)
+
+        assert slz0 == 0 or slz0 % cz == 0, f"Please choose a Z slice that is 0 or a multiple of chunk size: {cz}"
+        assert slx0 == 0 or slx0 % cx == 0, f"Please choose a X slice that is 0 or a multiple of chunk size: {cx}"
+        assert sly0 == 0 or sly0 % cy == 0, f"Please choose a Y slice that is 0 or a multiple of chunk size: {cy}"
+
+        Zlen, Xlen, Ylen = (Z-slz0, X-slx0, Y-sly0)
+
+        # file name selection
         root = os.sep.join(f.split(os.sep)[:-1]) + os.sep
-        fname_tot = "{}{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(root, base_name, X, Y, 1,
-                                                                             order, Z)
+        fname_tot = "{}{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(root, base_name, Xlen, Ylen, 1,
+                                                                             order, Zlen)
 
-        out = np.memmap(fname_tot, dtype=np.float32, mode="w+", shape=(X * Y, Z))
+        out = np.memmap(fname_tot, dtype=np.float32, mode="w+", shape=(Xlen * Ylen, Zlen))
 
-        for z0 in tqdm(range(0, Z, cz)):
-            for x0 in range(0, X, cx):
-                for y0 in range(0, Y, cy):
+        for z0 in tqdm(range(slz0, Z, cz)):
+            for x0 in range(slx0, X, cx):
+                for y0 in range(sly0, Y, cy):
 
                     z1 = min(Z, z0 + cz)
                     x1 = min(X, x0 + cx)
@@ -465,7 +484,7 @@ def save_memmap_h5(filenames, base_name='Yr',
 
                             col_section = chunk[a0, :, c0]
 
-                            ind0 = int(x0 / cx * cx + y0 * X + c0 * X)
+                            ind0 = int(x0 / cx * cx + y0 * Xlen + c0 * Xlen)
                             ind1 = ind0 + chx
 
                             indx0 = int(z0 / cz * cz + a0)
