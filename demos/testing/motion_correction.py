@@ -441,8 +441,8 @@ class CMotionCorrect():
 
         for fi in os.listdir(self.base):
             print(f"\t{spath}\n\t{fi}")
-            if fi.endswith(".mmap") and (spath in fi):
-                print(f"\t\tFound!")
+            if fi.endswith(".mmap") and fi.startswith(spath):
+                print(f"\tFound!")
                 return fi
 
         print(f"Couldn't find mmap: {spath}")
