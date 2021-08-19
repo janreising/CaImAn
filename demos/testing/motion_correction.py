@@ -433,9 +433,12 @@ class CMotionCorrect():
         spath = spath.replace(self.base, "").replace(".h5", "")[:-2]
 
         for fi in os.listdir(self.base):
+            print(f"\t{spath}\n\tfi")
             if fi.endswith(".mmap") and (spath in fi):
+                print(f"\t\tFound!")
                 return fi
 
+        print(f"Couldn't find mmap: {spath}")
         return None
 
     def save_tiff(self, loc, skip=None, downsize=0.5, subindices=None):
