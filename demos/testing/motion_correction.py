@@ -164,6 +164,7 @@ class CMotionCorrect():
 
                 # start cluster for parallel processing
                 if self.dview is None:
+                    print("Starting Cluster in motion correction")
                     _, dview, _ = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
                                                                  single_thread=False)
                 else:

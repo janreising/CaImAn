@@ -72,7 +72,8 @@ if __name__ == "__main__":
         ram_size_multiplier = None
         if len(missing_mcs) > 0:
             print(f"*MASTER* motion correction")
-            mc = CMotionCorrect(path=input_, verbose=3, delete_temp_files=delete_temp_files, on_server=on_server)
+            mc = CMotionCorrect(path=input_, verbose=3, delete_temp_files=delete_temp_files, on_server=on_server,
+                                dview=dview)
             mc.run_motion_correction(ram_size_multiplier=ram_size_multiplier, frames_per_file=frames_per_file)
 
         # check if cnmfe exists

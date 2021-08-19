@@ -34,7 +34,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
                                order='C', slices=(indices, None, None))
 
     Yr, dims, T = cm.load_memmap(mmap_name)
-    images = Yr.T.reshape((T,) + dims, order='C')
+    images = Yr.T.reshape((T,) + dims, order='C') # TODO can we get away with reshaping while we are saving?
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
 
@@ -449,9 +449,13 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
             if sly is not None:
                 sly0, sly1 = sly.start, sly.stop
 
+        print(f"Old ZXY: {Z}x{X}x{Y}")
+
         Z = min(slz1, Z)
         X = min(slx1, X)
         Y = min(sly1, Y)
+
+        print(f"New ZXY: {Z}x{X}x{Y}")
 
         assert slz0 == 0 or slz0 % cz == 0, f"Please choose a Z slice that is 0 or a multiple of chunk size: {cz}"
         assert slx0 == 0 or slx0 % cx == 0, f"Please choose a X slice that is 0 or a multiple of chunk size: {cx}"
@@ -479,15 +483,14 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
                     chz, chx, chy = chunk.shape
 
                     for a0 in range(chz):
-                        for c0 in range(chy):  # TODO change to cy; otherwise image is rotated and horizontally mirrored
+                        for c0 in range(chy):  # TODO change to cy (cx?); otherwise image is rotated and horizontally mirrored
 
                             col_section = chunk[a0, :, c0]
 
                             ind0 = int(x0 / cx * cx + y0 * Xlen + c0 * Xlen)
                             ind1 = ind0 + chx
 
-                            indx0 = int(z0 / cz * cz + a0)
-                            print(f"ind0:{ind0} x ind1:{ind1} , indx0:{indx0}")
+                            indx0 = int((z0-slz0) / cz * cz + a0)
                             out[ind0:ind1, indx0] = col_section + np.float32(0.0001)
 
                     sys.stdout.flush()
@@ -551,8 +554,8 @@ if __name__ == "__main__":
             z1 = min(z, z0+steps)
             print(f"Processing {z0} to {z1}")
 
-            main(path=input_file, loc="mc2/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
-            main(path=input_file, loc="mc2/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+            main(path=input_file, loc="mc2/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1)) # TODO mc2
+            # main(path=input_file, loc="mc2/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1)) #TODO
 
         # Finialization
         t1 = (time.time() - t0) / 60
