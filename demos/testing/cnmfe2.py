@@ -4,13 +4,7 @@ import numpy as np
 import getopt
 import time
 import traceback
-import mmap
 
-import caiman as cm
-from caiman.source_extraction.cnmf import params as params
-from caiman.utils.visualization import inspect_correlation_pnr
-from caiman.source_extraction import cnmf
-from caiman.source_extraction.cnmf.initialization import downscale
 import tifffile as tf
 from past.builtins import basestring
 from tqdm import tqdm
@@ -19,6 +13,18 @@ from pbullet import Comm
 
 import warnings
 warnings.filterwarnings("ignore")
+
+# import caiman as cm
+# from caiman.source_extraction.cnmf import params as params
+# from caiman.source_extraction import cnmf
+# from caiman.source_extraction.cnmf.initialization import downscale
+
+# <------- CAIMAN CODE
+import cp_cluster
+import cp_motioncorrection
+import cp_params
+import cp_cnmfe
+# CAIMAN CODE ------->
 
 def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
@@ -33,7 +39,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
     mmap_name = save_memmap_h5(path, base_name='memmap_', var_name_hdf5=loc,
                                order='C', slices=(indices, None, None))
 
-    Yr, dims, T = cm.load_memmap(mmap_name)
+    Yr, dims, T = cp_motioncorrection.load_memmap(mmap_name)
     images = Yr.T.reshape((T,) + dims, order='C') # TODO can we get away with reshaping while we are saving?
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
@@ -68,7 +74,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
     ssub_B = 2  # additional downsampling factor in space for background
     ring_size_factor = 1.4  # radius of ring is gSiz*ring_size_factor
 
-    opts = params.CNMFParams(params_dict={'dims': dims,
+    opts = cp_params.CNMFParams(params_dict={'dims': dims,
                                           'method_init': 'corr_pnr',  # use this for 1 photon
                                           'K': K,
                                           'gSig': gSig,
@@ -98,7 +104,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
                                           })
     try:
         # %% RUN CNMF ON PATCHES
-        cnm = cnmf.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
+        cnm = cp_cnmfe.CNMF(n_processes=n_processes, dview=dview, Ain=None, params=opts)
         cnm.fit(images)
         print("Fit successful!")
 
@@ -157,9 +163,9 @@ def get_reconstructed(estimates, imgs, include_bck=True):
         if ssub_B == 1:
             B = estimates.b0[:, None] + estimates.W.dot(B - estimates.b0[:, None])
         else:
-            WB = estimates.W.dot(downscale(B.reshape(dims + (B.shape[-1],), order='F'),
+            WB = estimates.W.dot(cp_cnmfe.downscale(B.reshape(dims + (B.shape[-1],), order='F'),
                                            (ssub_B, ssub_B, 1)).reshape((-1, B.shape[-1]), order='F'))
-            Wb0 = estimates.W.dot(downscale(estimates.b0.reshape(dims, order='F'),
+            Wb0 = estimates.W.dot(cp_cnmfe.downscale(estimates.b0.reshape(dims, order='F'),
                                             (ssub_B, ssub_B)).reshape((-1, 1), order='F'))
             B = estimates.b0.flatten('F')[:, None] + (np.repeat(
                 np.repeat((WB - Wb0).reshape(((dims[0] - 1) // ssub_B + 1, (dims[1] - 1) // ssub_B + 1, -1), order='F'),
@@ -392,7 +398,7 @@ def save_memmap_slim(filenames, base_name='Yr',
     if slices is not None:
         slices = [slice(0, None) if sl is None else sl for sl in slices]
 
-    Yr = cm.load(f, fr=1, in_memory=False, var_name_hdf5=var_name_hdf5)
+    Yr = cp_motioncorrection.load(f, fr=1, in_memory=False, var_name_hdf5=var_name_hdf5)
 
     if xy_shifts is not None:
         Yr = Yr.apply_shifts(xy_shifts, interpolation='cubic', remove_blanks=False)
@@ -535,7 +541,7 @@ if __name__ == "__main__":
         steps = 400
         use_cuda = False
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
+    c, dview, n_processes = cp_motioncorrection.setup_cluster(backend='local', n_processes=None,  # TODO why is this so weird
                                                      single_thread=False)
     comm = Comm()
     print("Cluster started!")
@@ -573,6 +579,6 @@ if __name__ == "__main__":
 
         # stop cluster
         dview.terminate()
-        cm.stop_server()
+        cp_motioncorrection.stop_server()
 
         print("Done")

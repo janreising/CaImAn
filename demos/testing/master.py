@@ -3,7 +3,11 @@ from motion_correction import CMotionCorrect
 from calpack import Converter
 import getopt, sys, os
 import h5py as h5
-import caiman as cm
+
+# <------- CAIMAN CODE
+import cp_cluster
+# CAIMAN CODE ------->
+
 import traceback
 
 if __name__ == "__main__":
@@ -60,7 +64,7 @@ if __name__ == "__main__":
             except Exception:
                 continue
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  single_thread=False)
+    c, dview, n_processes = cp_cluster.setup_cluster(backend='local', n_processes=None,  single_thread=False)
 
     try:
         # check if mc exists
@@ -108,7 +112,7 @@ if __name__ == "__main__":
         traceback.print_exc()
     finally:
         dview.terminate()
-        cm.stop_server()
+        cp_cluster.stop_server()
 
         print("*MASTER* All done!")
 

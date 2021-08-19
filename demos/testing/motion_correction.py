@@ -18,9 +18,15 @@ try:
 except:
     pass
 
-import caiman as cm
-from caiman.motion_correction import MotionCorrect
-from caiman.source_extraction.volpy.volparams import volparams
+# import caiman as cm
+# from caiman.motion_correction import MotionCorrect
+# from caiman.source_extraction.volpy.volparams import volparams
+
+# <------- CAIMAN CODE
+import cp_cluster
+import cp_params
+import cp_motioncorrection
+# CAIMAN CODE ------->
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -157,7 +163,7 @@ class CMotionCorrect():
                     'use_cuda': use_cuda,
                 }
 
-                opts = volparams(params_dict=opts_dict)
+                opts = cp_params.volparams(params_dict=opts_dict)
 
                 ###################
                 # Motion Correction
@@ -165,7 +171,7 @@ class CMotionCorrect():
                 # start cluster for parallel processing
                 if self.dview is None:
                     print("Starting Cluster in motion correction")
-                    _, dview, _ = cm.cluster.setup_cluster(backend='local', n_processes=n_processes,
+                    _, dview, _ = cp_cluster.setup_cluster(backend='local', n_processes=n_processes,
                                                                  single_thread=False)
                 else:
                     dview = self.dview
@@ -173,13 +179,13 @@ class CMotionCorrect():
                 # Run correction
                 if self.verbose > 0:
                     print("Starting motion correction ... [{}]".format(f"{self.loc_in}{loc}"))
-                mc = MotionCorrect(self.files, dview=dview, var_name_hdf5=f"{self.loc_in}{loc}",
+                mc = cp_motioncorrection.MotionCorrect(self.files, dview=dview, var_name_hdf5=f"{self.loc_in}{loc}",
                                    **opts.get_group('motion'))
                 mc.motion_correct(save_movie=True)
 
                 # stop cluster
                 if self.dview is None:
-                    cm.stop_server(dview=dview)
+                    cp_cluster.stop_server(dview=dview)
 
             ####################
             # Convert mmap to h5
