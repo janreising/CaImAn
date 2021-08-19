@@ -38,7 +38,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
     # %% Parameters for source extraction and deconvolution (CNMF-E algorithm)
 
-    bord_px = 0
+    bord_px, use_cuda = 0, False
 
     p = 1  # order of the autoregressive system
     K = None  # upper bound on number of components per patch, in general None for 1p data
