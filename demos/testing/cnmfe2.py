@@ -554,8 +554,8 @@ if __name__ == "__main__":
             z1 = min(z, z0+steps)
             print(f"Processing {z0} to {z1}")
 
-            main(path=input_file, loc="mc2/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1)) # TODO mc2
-            # main(path=input_file, loc="mc2/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1)) #TODO
+            main(path=input_file, loc="mc/ast", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+            main(path=input_file, loc="mc/neu", dview=dview, n_processes=n_processes, indices=slice(z0, z1))
 
         # Finialization
         t1 = (time.time() - t0) / 60
