@@ -8,6 +8,20 @@ import caiman as cm
 import traceback
 import time
 
+def get_keys(path):
+    keys = []
+    with h5.File(path, "r") as file:
+        for key in list(file.keys()):
+            keys.append(key)
+
+            try:
+                for key2 in file[key].keys():
+                    keys.append(f"{key}/{key2}")
+            except Exception:
+                continue
+    return keys
+
+
 if __name__ == "__main__":
 
     ###########
@@ -55,16 +69,7 @@ if __name__ == "__main__":
     # Processing
 
     assert input_.endswith(".h5"), f"at this stage we should be working with an .h5 file. However: {input_}"
-    keys = []
-    with h5.File(input_, "r") as file:
-        for key in list(file.keys()):
-            keys.append(key)
 
-            try:
-                for key2 in file[key].keys():
-                    keys.append(f"{key}/{key2}")
-            except Exception:
-                continue
 
     if not on_server:
         num_proc = 6
@@ -76,8 +81,8 @@ if __name__ == "__main__":
     try:
         ####################
         # Motion Correction
-        missing_mcs = [key for key in keys if
-                       (key.startswith("data/") and key.replace("data/", "mc/") not in keys)]
+        missing_mcs = [key for key in get_keys(input_) if
+                       (key.startswith("data/") and key.replace("data/", "mc/") not in get_keys(input_))]
 
         delete_temp_files = True
         frames_per_file = 500
@@ -90,8 +95,8 @@ if __name__ == "__main__":
 
         #######
         # CNMFE
-        missing_cnmfes = [key for key in keys if
-                          (key.startswith("mc") and key.replace("mc", "cnmfe") not in keys)]
+        missing_cnmfes = [key for key in get_keys(input_) if
+                          (key.startswith("mc") and key.replace("mc", "cnmfe") not in get_keys(input_))]
 
         if not on_server:
             steps = 200
