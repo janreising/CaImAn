@@ -4,7 +4,6 @@ import numpy as np
 import getopt
 import time
 import traceback
-import mmap
 
 import caiman as cm
 from caiman.source_extraction.cnmf import params as params
@@ -449,13 +448,9 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
             if sly is not None:
                 sly0, sly1 = sly.start, sly.stop
 
-        print(f"Old ZXY: {Z}x{X}x{Y}")
-
         Z = min(slz1, Z)
         X = min(slx1, X)
         Y = min(sly1, Y)
-
-        print(f"New ZXY: {Z}x{X}x{Y}")
 
         assert slz0 == 0 or slz0 % cz == 0, f"Please choose a Z slice that is 0 or a multiple of chunk size: {cz}"
         assert slx0 == 0 or slx0 % cx == 0, f"Please choose a X slice that is 0 or a multiple of chunk size: {cx}"

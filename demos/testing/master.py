@@ -5,6 +5,7 @@ import getopt, sys, os
 import h5py as h5
 import caiman as cm
 import traceback
+import time
 
 if __name__ == "__main__":
 
@@ -68,7 +69,8 @@ if __name__ == "__main__":
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=num_proc,  single_thread=False)
 
     try:
-        # check if mc exists
+        ####################
+        # Motion Correction
         missing_mcs = [key for key in keys if
                        (key.startswith("data/") and key.replace("data/", "mc/") not in keys)]
 
@@ -81,15 +83,17 @@ if __name__ == "__main__":
                                 dview=dview)
             mc.run_motion_correction(ram_size_multiplier=ram_size_multiplier, frames_per_file=frames_per_file)
 
-        # check if cnmfe exists
+        #######
+        # CNMFE
         missing_cnmfes = [key for key in keys if
-                   (key.startswith("data/") and key.replace("data/", "cnmfe/") not in keys)]
+                          (key.startswith("data/") and key.replace("data/", "cnmfe/") not in keys)]
 
         if not on_server:
             steps = 200
         else:
             steps = 400
         if len(missing_cnmfes) > 0:
+            t0 = time.time()
             for loc in missing_cnmfes:
 
                 with h5.File(input_, "r") as file:
@@ -101,6 +105,9 @@ if __name__ == "__main__":
                     print(f"*MASTER* CNMFE processing indices {z0}:{z1} for loc {loc}")
 
                     cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+
+            t1 = time.time() - t0
+            print("*MASTER* CNMFE finished in {:.2f} min".format(t1/60))
 
         # check if dFF exists
         # TODO implement
