@@ -65,7 +65,7 @@ if __name__ == "__main__":
     else:
         num_proc = None
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', num_proc=None,  single_thread=False)
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=num_proc,  single_thread=False)
 
     try:
         # check if mc exists
