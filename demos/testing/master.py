@@ -60,7 +60,12 @@ if __name__ == "__main__":
             except Exception:
                 continue
 
-    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=None,  single_thread=False)
+    if not on_server:
+        num_proc = 6
+    else:
+        num_proc = None
+
+    c, dview, n_processes = cm.cluster.setup_cluster(backend='local', num_proc=None,  single_thread=False)
 
     try:
         # check if mc exists
@@ -81,10 +86,8 @@ if __name__ == "__main__":
                    (key.startswith("data/") and key.replace("data/", "cnmfe/") not in keys)]
 
         if not on_server:
-            n_processes = 6
             steps = 200
         else:
-            n_processes = None
             steps = 400
         if len(missing_cnmfes) > 0:
             for loc in missing_cnmfes:
