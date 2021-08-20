@@ -1,6 +1,7 @@
 import cnmfe2 as cnmfe
 from motion_correction import CMotionCorrect
 from calpack import Converter
+from overview import main as overview
 import getopt, sys, os
 import h5py as h5
 import caiman as cm
@@ -43,6 +44,10 @@ if __name__ == "__main__":
         print(f"*MASTER* converting zip to h5")
         loader = Converter()
         output_ = f"{input_}.h5"
+        if os.path.isfile(output_):
+            print(f"\t *master* output file already exists. Deleting to be save. ({output_})")
+            os.remove(output_)
+
         loader.zip_to_h5(input_, output_, resize_factor=resize_factor)
         input_ = output_
 
@@ -86,7 +91,7 @@ if __name__ == "__main__":
         #######
         # CNMFE
         missing_cnmfes = [key for key in keys if
-                          (key.startswith("data/") and key.replace("data/", "cnmfe/") not in keys)]
+                          (key.startswith("mc") and key.replace("mc", "cnmfe") not in keys)]
 
         if not on_server:
             steps = 200
@@ -119,6 +124,9 @@ if __name__ == "__main__":
     finally:
         dview.terminate()
         cm.stop_server()
+
+        print(f"*MASTER* printing structure of : {input_}")
+        overview(input_)
 
         print("*MASTER* All done!")
 

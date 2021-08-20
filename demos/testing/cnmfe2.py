@@ -118,6 +118,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
             else:
                 data[indices.start:indices.stop, :, :] = rec
 
+            print(f"Saved cnmfe result to {new_loc}")
+
         if save_tiff:
             tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
             print("Sample saved!")
