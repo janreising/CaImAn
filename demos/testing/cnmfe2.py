@@ -29,7 +29,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
     # mmap_name = cm.save_memmap([path], base_name='memmap_', var_name_hdf5=loc,
     #                            order='C', border_to_0=0, dview=None, slices=(indices, None, None))
 
-    mmap_name = save_memmap_h5(path, base_name='memmap_', var_name_hdf5=loc,
+    base_name = path.split(os.sep)[-1].replace(".zip.h5", "") + "_"
+    mmap_name = save_memmap_h5(path, base_name=base_name, var_name_hdf5=loc,
                                order='C', slices=(indices, None, None))
 
     Yr, dims, T = cm.load_memmap(mmap_name)
