@@ -98,10 +98,10 @@ if __name__ == "__main__":
         #######
         # CNMFE
         keys = get_keys(input_)
-        print(f"pre cnmfe keys: {keys}")
+        # print(f"pre cnmfe keys: {keys}")
         missing_cnmfes = [key for key in keys if
                           (key.startswith("mc/") and key.replace("mc/", "cnmfe/") not in keys)]
-        print(f"keys: {missing_cnmfes}")
+        # print(f"keys: {missing_cnmfes}")
 
         if not on_server:
             steps = 200
