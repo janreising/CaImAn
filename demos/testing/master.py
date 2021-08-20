@@ -81,8 +81,10 @@ if __name__ == "__main__":
     try:
         ####################
         # Motion Correction
-        missing_mcs = [key for key in get_keys(input_) if
-                       (key.startswith("data/") and key.replace("data/", "mc/") not in get_keys(input_))]
+        keys = get_keys(input_)
+        print(f"pre mc keys: {keys}")
+        missing_mcs = [key for key in keys if
+                       (key.startswith("data/") and key.replace("data/", "mc/") not in keys)]
 
         delete_temp_files = True
         frames_per_file = 500
@@ -95,8 +97,10 @@ if __name__ == "__main__":
 
         #######
         # CNMFE
-        missing_cnmfes = [key for key in get_keys(input_) if
-                          (key.startswith("mc") and key.replace("mc", "cnmfe") not in get_keys(input_))]
+        keys = get_keys(input_)
+        print(f"pre cnmfe keys: {keys}")
+        missing_cnmfes = [key for key in keys if
+                          (key.startswith("mc") and key.replace("mc", "cnmfe") not in keys)]
 
         if not on_server:
             steps = 200
