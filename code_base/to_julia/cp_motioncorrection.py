@@ -1551,6 +1551,283 @@ def tile_and_correct(img, template, strides, overlaps, max_shifts, newoverlaps=N
 
         return new_img - add_to_movie, total_shifts, start_step, xy_grid
 
+def register_translation(src_image, target_image, upsample_factor=1,
+                         space="real", shifts_lb=None, shifts_ub=None, max_shifts=(10, 10),
+                         use_cuda=False):
+    """
+
+    adapted from SIMA (https://github.com/losonczylab) and the
+    scikit-image (http://scikit-image.org/) package.
+
+
+    Unless otherwise specified by LICENSE.txt files in individual
+    directories, all code is
+
+    Copyright (C) 2011, the scikit-image team
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+    met:
+
+     1. Redistributions of source code must retain the above copyright
+        notice, this list of conditions and the following disclaimer.
+     2. Redistributions in binary form must reproduce the above copyright
+        notice, this list of conditions and the following disclaimer in
+        the documentation and/or other materials provided with the
+        distribution.
+     3. Neither the name of skimage nor the names of its contributors may be
+        used to endorse or promote products derived from this software without
+        specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+    IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+    DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+    INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+    SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+    IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+    Efficient subpixel image translation registration by cross-correlation.
+
+    This code gives the same precision as the FFT upsampled cross-correlation
+    in a fraction of the computation time and with reduced memory requirements.
+    It obtains an initial estimate of the cross-correlation peak by an FFT and
+    then refines the shift estimation by upsampling the DFT only in a small
+    neighborhood of that estimate by means of a matrix-multiply DFT.
+
+    Args:
+        src_image : ndarray
+            Reference image.
+
+        target_image : ndarray
+            Image to register.  Must be same dimensionality as ``src_image``.
+
+        upsample_factor : int, optional
+            Upsampling factor. Images will be registered to within
+            ``1 / upsample_factor`` of a pixel. For example
+            ``upsample_factor == 20`` means the images will be registered
+            within 1/20th of a pixel.  Default is 1 (no upsampling)
+
+        space : string, one of "real" or "fourier"
+            Defines how the algorithm interprets input data.  "real" means data
+            will be FFT'd to compute the correlation, while "fourier" data will
+            bypass FFT of input data.  Case insensitive.
+
+        use_cuda : bool, optional
+            Use skcuda.fft (if available). Default: False
+
+    Returns:
+        shifts : ndarray
+            Shift vector (in pixels) required to register ``target_image`` with
+            ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
+
+        error : float
+            Translation invariant normalized RMS error between ``src_image`` and
+            ``target_image``.
+
+        phasediff : float
+            Global phase difference between the two images (should be
+            zero if images are non-negative).
+
+    Raises:
+     NotImplementedError "Error: register_translation only supports "
+                                  "subpixel registration for 2D images"
+
+     ValueError "Error: images must really be same size for "
+                         "register_translation"
+
+     ValueError "Error: register_translation only knows the \"real\" "
+                         "and \"fourier\" values for the ``space`` argument."
+
+    References:
+    .. [1] Manuel Guizar-Sicairos, Samuel T. Thurman, and James R. Fienup,
+           "Efficient subpixel image registration algorithms,"
+           Optics Letters 33, 156-158 (2008).
+    """
+    # images must be the same shape
+    if src_image.shape != target_image.shape:
+        raise ValueError("Error: images must really be same size for "
+                         "register_translation")
+
+    # only 2D data makes sense right now
+    if src_image.ndim != 2 and upsample_factor > 1:
+        raise NotImplementedError("Error: register_translation only supports "
+                                  "subpixel registration for 2D images")
+
+    if HAS_CUDA and use_cuda:
+        # from skcuda.fft import Plan
+        # from skcuda.fft import fft as cudafft
+        # from skcuda.fft import ifft as cudaifft
+        # try:
+        #     cudactx # type: ignore
+        # except NameError:
+        #     init_cuda_process()
+        print("**to_julia** currently not implemented")
+        sys.exit(2)
+
+
+    # assume complex data is already in Fourier space
+    if space.lower() == 'fourier':
+        src_freq = src_image
+        target_freq = target_image
+    # real data needs to be fft'd.
+    elif space.lower() == 'real':
+        if HAS_CUDA and use_cuda:
+            # # src_image_cpx = np.array(src_image, dtype=np.complex128, copy=False)
+            # # target_image_cpx = np.array(target_image, dtype=np.complex128, copy=False)
+            #
+            # image_gpu = gpuarray.to_gpu(np.stack((src_image, target_image)).astype(np.complex128))
+            # freq_gpu = gpuarray.empty((2, src_image.shape[0], src_image.shape[1]), dtype=np.complex128)
+            # # src_image_gpu = gpuarray.to_gpu(src_image_cpx)
+            # # src_freq_gpu = gpuarray.empty(src_image_cpx.shape, np.complex128)
+            #
+            # # target_image_gpu = gpuarray.to_gpu(target_image_cpx)
+            # # target_freq_gpu = gpuarray.empty(target_image_cpx.shape, np.complex128)
+            #
+            # plan = Plan(src_image.shape, np.complex128, np.complex128, batch=2)
+            # # cudafft(src_image_gpu, src_freq_gpu, plan, scale=True)
+            # # cudafft(target_image_gpu, target_freq_gpu, plan, scale=True)
+            # cudafft(image_gpu, freq_gpu, plan, scale=True)
+            # # src_freq = src_freq_gpu.get()
+            # # target_freq = target_freq_gpu.get()
+            # freq = freq_gpu.get()
+            # src_freq = freq[0, :, :]
+            # target_freq = freq[1, :, :]
+            #
+            # # del(src_image_gpu)
+            # # del(src_freq_gpu)
+            # # del(target_image_gpu)
+            # # del(target_freq_gpu)
+            # del(image_gpu)
+            # del(freq_gpu)
+
+            print("**to_julia** currently not implemented")
+            sys.exit(2)
+
+        elif opencv:
+            src_freq_1 = fftn(
+                src_image, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
+            src_freq = src_freq_1[:, :, 0] + 1j * src_freq_1[:, :, 1]
+            src_freq = np.array(src_freq, dtype=np.complex128, copy=False)
+            target_freq_1 = fftn(
+                target_image, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
+            target_freq = target_freq_1[:, :, 0] + 1j * target_freq_1[:, :, 1]
+            target_freq = np.array(
+                target_freq, dtype=np.complex128, copy=False)
+        else:
+            src_image_cpx = np.array(
+                src_image, dtype=np.complex128, copy=False)
+            target_image_cpx = np.array(
+                target_image, dtype=np.complex128, copy=False)
+            src_freq = np.fft.fftn(src_image_cpx)
+            target_freq = np.fft.fftn(target_image_cpx)
+
+    else:
+        raise ValueError("Error: register_translation only knows the \"real\" "
+                         "and \"fourier\" values for the ``space`` argument.")
+
+    # Whole-pixel shift - Compute cross-correlation by an IFFT
+    shape = src_freq.shape
+    image_product = src_freq * target_freq.conj()
+    if HAS_CUDA and use_cuda:
+        # image_product_gpu = gpuarray.to_gpu(image_product)
+        # cross_correlation_gpu = gpuarray.empty(
+        #     image_product.shape, np.complex128)
+        # iplan = Plan(image_product.shape, np.complex128, np.complex128)
+        # cudaifft(image_product_gpu, cross_correlation_gpu, iplan, scale=True)
+        # cross_correlation = cross_correlation_gpu.get()
+        print("**to_julia** currently not implemented")
+        sys.exit(2)
+    elif opencv:
+
+        image_product_cv = np.dstack(
+            [np.real(image_product), np.imag(image_product)])
+        cross_correlation = fftn(
+            image_product_cv, flags=cv2.DFT_INVERSE + cv2.DFT_SCALE)
+        cross_correlation = cross_correlation[:,
+                                              :, 0] + 1j * cross_correlation[:, :, 1]
+    else:
+        cross_correlation = ifftn(image_product)
+
+    # Locate maximum
+    new_cross_corr = np.abs(cross_correlation)
+
+    if (shifts_lb is not None) or (shifts_ub is not None):
+
+        if (shifts_lb[0] < 0) and (shifts_ub[0] >= 0):
+            new_cross_corr[shifts_ub[0]:shifts_lb[0], :] = 0
+        else:
+            new_cross_corr[:shifts_lb[0], :] = 0
+            new_cross_corr[shifts_ub[0]:, :] = 0
+
+        if (shifts_lb[1] < 0) and (shifts_ub[1] >= 0):
+            new_cross_corr[:, shifts_ub[1]:shifts_lb[1]] = 0
+        else:
+            new_cross_corr[:, :shifts_lb[1]] = 0
+            new_cross_corr[:, shifts_ub[1]:] = 0
+    else:
+
+        new_cross_corr[max_shifts[0]:-max_shifts[0], :] = 0
+
+        new_cross_corr[:, max_shifts[1]:-max_shifts[1]] = 0
+
+    maxima = np.unravel_index(np.argmax(new_cross_corr),
+                              cross_correlation.shape)
+    midpoints = np.array([np.fix(old_div(axis_size, 2))
+                          for axis_size in shape])
+
+    shifts = np.array(maxima, dtype=np.float64)
+    shifts[shifts > midpoints] -= np.array(shape)[shifts > midpoints]
+
+    if upsample_factor == 1:
+
+        src_amp = old_div(np.sum(np.abs(src_freq) ** 2), src_freq.size)
+        target_amp = old_div(
+            np.sum(np.abs(target_freq) ** 2), target_freq.size)
+        CCmax = cross_correlation.max()
+    # If upsampling > 1, then refine estimate with matrix multiply DFT
+    else:
+        # Initial shift estimate in upsampled grid
+        shifts = old_div(np.round(shifts * upsample_factor), upsample_factor)
+        upsampled_region_size = np.ceil(upsample_factor * 1.5)
+        # Center of output array at dftshift + 1
+        dftshift = np.fix(old_div(upsampled_region_size, 2.0))
+        upsample_factor = np.array(upsample_factor, dtype=np.float64)
+        normalization = (src_freq.size * upsample_factor ** 2)
+        # Matrix multiply DFT around the current shift estimate
+        sample_region_offset = dftshift - shifts * upsample_factor
+
+        cross_correlation = _upsampled_dft(image_product.conj(),
+                                           upsampled_region_size,
+                                           upsample_factor,
+                                           sample_region_offset).conj()
+        cross_correlation /= normalization
+        # Locate maximum and map back to original pixel grid
+        maxima = np.array(np.unravel_index(
+            np.argmax(np.abs(cross_correlation)),
+            cross_correlation.shape),
+            dtype=np.float64)
+        maxima -= dftshift
+        shifts = shifts + old_div(maxima, upsample_factor)
+        CCmax = cross_correlation.max()
+        src_amp = _upsampled_dft(src_freq * src_freq.conj(),
+                                 1, upsample_factor)[0, 0]
+        src_amp /= normalization
+        target_amp = _upsampled_dft(target_freq * target_freq.conj(),
+                                    1, upsample_factor)[0, 0]
+        target_amp /= normalization
+
+    # If its only one row or column the shift along that dimension has no
+    # effect. We set to zero.
+    for dim in range(src_freq.ndim):
+        if shape[dim] == 1:
+            shifts[dim] = 0
+
+    return shifts, src_freq, _compute_phasediff(CCmax)
 
 def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True):
     """
@@ -1599,13 +1876,10 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
 
     is3D = len(src_freq.shape) == 3
     if not is_freq:
-        if is3D:
-            src_freq = np.fft.fftn(src_freq)
-        else:
-            src_freq = np.dstack([np.real(src_freq), np.imag(src_freq)])
-            src_freq = fftn(src_freq, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
-            src_freq = src_freq[:, :, 0] + 1j * src_freq[:, :, 1]
-            src_freq = np.array(src_freq, dtype=np.complex128, copy=False)
+        src_freq = np.dstack([np.real(src_freq), np.imag(src_freq)])
+        src_freq = fftn(src_freq, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
+        src_freq = src_freq[:, :, 0] + 1j * src_freq[:, :, 1]
+        src_freq = np.array(src_freq, dtype=np.complex128, copy=False)
 
     if not is3D:
         shifts = shifts[::-1]
@@ -1628,11 +1902,9 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
                                   shifts[2] * Nd / nd))
 
     Greg = Greg.dot(np.exp(1j * diffphase))
-    if is3D:
-        new_img = np.real(np.fft.ifftn(Greg))
-    else:
-        Greg = np.dstack([np.real(Greg), np.imag(Greg)])
-        new_img = ifftn(Greg)[:, :, 0]
+
+    Greg = np.dstack([np.real(Greg), np.imag(Greg)])
+    new_img = ifftn(Greg)[:, :, 0]
 
     if border_nan is not False:
         max_w, max_h, min_w, min_h = 0, 0, 0, 0
@@ -1640,9 +1912,6 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
             (max_h, max_w), shifts[:2])).astype(np.int)
         min_h, min_w = np.floor(np.minimum(
             (min_h, min_w), shifts[:2])).astype(np.int)
-        if is3D:
-            max_d = np.ceil(np.maximum(0, shifts[2])).astype(np.int)
-            min_d = np.floor(np.minimum(0, shifts[2])).astype(np.int)
         if border_nan is True:
             new_img[:max_h, :] = np.nan
             if min_h < 0:
@@ -1650,10 +1919,6 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
             new_img[:, :max_w] = np.nan
             if min_w < 0:
                 new_img[:, min_w:] = np.nan
-            if is3D:
-                new_img[:, :, :max_d] = np.nan
-                if min_d < 0:
-                    new_img[:, :, min_d:] = np.nan
         elif border_nan == 'min':
             min_ = np.nanmin(new_img)
             new_img[:max_h, :] = min_
@@ -1662,10 +1927,6 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
             new_img[:, :max_w] = min_
             if min_w < 0:
                 new_img[:, min_w:] = min_
-            if is3D:
-                new_img[:, :, :max_d] = min_
-                if min_d < 0:
-                    new_img[:, :, min_d:] = min_
         elif border_nan == 'copy':
             new_img[:max_h] = new_img[max_h]
             if min_h < 0:
@@ -1674,13 +1935,85 @@ def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True)
                 new_img[:, :max_w] = new_img[:, max_w, np.newaxis]
             if min_w < 0:
                 new_img[:, min_w:] = new_img[:, min_w-1, np.newaxis]
-            if is3D:
-                if max_d > 0:
-                    new_img[:, :, :max_d] = new_img[:, :, max_d, np.newaxis]
-                if min_d < 0:
-                    new_img[:, :, min_d:] = new_img[:, :, min_d-1, np.newaxis]
 
     return new_img
+
+#%% in parallel
+def tile_and_correct_wrapper(params):
+    """Does motion correction on specified image frames
+
+    Returns:
+    shift_info:
+    idxs:
+    mean_img: mean over all frames of corrected image (to get individ frames, use out_fname to write them to disk)
+
+    Notes:
+    Also writes corrected frames to the mmap file specified by out_fname (if not None)
+
+    """
+    # todo todocument
+
+
+    try:
+        cv2.setNumThreads(0)
+    except:
+        pass  # 'Open CV is naturally single threaded'
+
+    img_name, out_fname, idxs, shape_mov, template, strides, overlaps, max_shifts,\
+        add_to_movie, max_deviation_rigid, upsample_factor_grid, newoverlaps, newstrides, \
+        shifts_opencv, nonneg_movie, gSig_filt, is_fiji, use_cuda, border_nan, var_name_hdf5, \
+        is3D, indices = params
+
+
+    if isinstance(img_name, tuple):
+        name, extension = os.path.splitext(img_name[0])[:2]
+    else:
+        name, extension = os.path.splitext(img_name)[:2]
+    extension = extension.lower()
+    shift_info = []
+
+    imgs = load(img_name, subindices=idxs, var_name_hdf5=var_name_hdf5,is3D=is3D)
+    imgs = imgs[(slice(None),) + indices]
+    mc = np.zeros(imgs.shape, dtype=np.float32)
+    if not imgs[0].shape == template.shape:
+        template = template[indices]
+    for count, img in enumerate(imgs):
+        if count % 10 == 0:
+            logging.debug(count)
+        if is3D:
+            mc[count], total_shift, start_step, xyz_grid = tile_and_correct_3d(img, template, strides, overlaps, max_shifts,
+                                                                       add_to_movie=add_to_movie, newoverlaps=newoverlaps,
+                                                                       newstrides=newstrides,
+                                                                       upsample_factor_grid=upsample_factor_grid,
+                                                                       upsample_factor_fft=10, show_movie=False,
+                                                                       max_deviation_rigid=max_deviation_rigid,
+                                                                       shifts_opencv=shifts_opencv, gSig_filt=gSig_filt,
+                                                                       use_cuda=use_cuda, border_nan=border_nan)
+            shift_info.append([tuple(-np.array(total_shift)), start_step, xyz_grid])
+
+        else:
+            mc[count], total_shift, start_step, xy_grid = tile_and_correct(img, template, strides, overlaps, max_shifts,
+                                                                       add_to_movie=add_to_movie, newoverlaps=newoverlaps,
+                                                                       newstrides=newstrides,
+                                                                       upsample_factor_grid=upsample_factor_grid,
+                                                                       upsample_factor_fft=10, show_movie=False,
+                                                                       max_deviation_rigid=max_deviation_rigid,
+                                                                       shifts_opencv=shifts_opencv, gSig_filt=gSig_filt,
+                                                                       use_cuda=use_cuda, border_nan=border_nan)
+            shift_info.append([total_shift, start_step, xy_grid])
+
+    if out_fname is not None:
+        outv = np.memmap(out_fname, mode='r+', dtype=np.float32,
+                         shape=prepare_shape(shape_mov), order='F')
+        if nonneg_movie:
+            bias = np.float32(add_to_movie)
+        else:
+            bias = 0
+        outv[:, idxs] = np.reshape(
+            mc.astype(np.float32), (len(imgs), -1), order='F').T + bias
+    new_temp = np.nanmean(mc, 0)
+    new_temp[np.isnan(new_temp)] = np.nanmin(new_temp)
+    return shift_info, idxs, new_temp
 
 def apply_shift_iteration(img, shift, border_nan:bool=False, border_type=cv2.BORDER_REFLECT):
     # todo todocument
@@ -1722,39 +2055,6 @@ def apply_shift_iteration(img, shift, border_nan:bool=False, border_type=cv2.BOR
                 img[:, min_w:] = img[:, min_w-1, np.newaxis]
 
     return img
-
-def sliding_window_3d(image, overlaps, strides):
-    """ efficiently and lazily slides a window across the image
-
-    Args:
-        img:ndarray 3D
-            image that needs to be slices
-
-        windowSize: tuple
-            dimension of the patch
-
-        strides: tuple
-            stride in each dimension
-
-     Returns:
-         iterator containing seven items
-              dim_1, dim_2, dim_3 coordinates in the patch grid
-              x, y, z: bottom border of the patch in the original matrix
-
-              patch: the patch
-     """
-    windowSize = np.add(overlaps, strides)
-    range_1 = list(range(
-        0, image.shape[0] - windowSize[0], strides[0])) + [image.shape[0] - windowSize[0]]
-    range_2 = list(range(
-        0, image.shape[1] - windowSize[1], strides[1])) + [image.shape[1] - windowSize[1]]
-    range_3 = list(range(
-        0, image.shape[2] - windowSize[2], strides[2])) + [image.shape[2] - windowSize[2]]
-    for dim_1, x in enumerate(range_1):
-        for dim_2, y in enumerate(range_2):
-            for dim_3, z in enumerate(range_3):
-                # yield the current window
-                yield (dim_1, dim_2, dim_3, x, y, z, image[x:x + windowSize[0], y:y + windowSize[1], z:z + windowSize[2]])
 
 def sliding_window(image, overlaps, strides):
     """ efficiently and lazily slides a window across the image
@@ -2865,491 +3165,6 @@ def memmap_frames_filename(basename: str, dims: Tuple, frames: int, order: str =
         dimfield_2 = 1
     return f"{basename}_d1_{dimfield_0}_d2_{dimfield_1}_d3_{dimfield_2}_order_{order}_frames_{frames}_.mmap"
 
-#%% in parallel
-def tile_and_correct_wrapper(params):
-    """Does motion correction on specified image frames
-
-    Returns:
-    shift_info:
-    idxs:
-    mean_img: mean over all frames of corrected image (to get individ frames, use out_fname to write them to disk)
-
-    Notes:
-    Also writes corrected frames to the mmap file specified by out_fname (if not None)
-
-    """
-    # todo todocument
-
-
-    try:
-        cv2.setNumThreads(0)
-    except:
-        pass  # 'Open CV is naturally single threaded'
-
-    img_name, out_fname, idxs, shape_mov, template, strides, overlaps, max_shifts,\
-        add_to_movie, max_deviation_rigid, upsample_factor_grid, newoverlaps, newstrides, \
-        shifts_opencv, nonneg_movie, gSig_filt, is_fiji, use_cuda, border_nan, var_name_hdf5, \
-        is3D, indices = params
-
-
-    if isinstance(img_name, tuple):
-        name, extension = os.path.splitext(img_name[0])[:2]
-    else:
-        name, extension = os.path.splitext(img_name)[:2]
-    extension = extension.lower()
-    shift_info = []
-
-    imgs = load(img_name, subindices=idxs, var_name_hdf5=var_name_hdf5,is3D=is3D)
-    imgs = imgs[(slice(None),) + indices]
-    mc = np.zeros(imgs.shape, dtype=np.float32)
-    if not imgs[0].shape == template.shape:
-        template = template[indices]
-    for count, img in enumerate(imgs):
-        if count % 10 == 0:
-            logging.debug(count)
-        if is3D:
-            mc[count], total_shift, start_step, xyz_grid = tile_and_correct_3d(img, template, strides, overlaps, max_shifts,
-                                                                       add_to_movie=add_to_movie, newoverlaps=newoverlaps,
-                                                                       newstrides=newstrides,
-                                                                       upsample_factor_grid=upsample_factor_grid,
-                                                                       upsample_factor_fft=10, show_movie=False,
-                                                                       max_deviation_rigid=max_deviation_rigid,
-                                                                       shifts_opencv=shifts_opencv, gSig_filt=gSig_filt,
-                                                                       use_cuda=use_cuda, border_nan=border_nan)
-            shift_info.append([tuple(-np.array(total_shift)), start_step, xyz_grid])
-
-        else:
-            mc[count], total_shift, start_step, xy_grid = tile_and_correct(img, template, strides, overlaps, max_shifts,
-                                                                       add_to_movie=add_to_movie, newoverlaps=newoverlaps,
-                                                                       newstrides=newstrides,
-                                                                       upsample_factor_grid=upsample_factor_grid,
-                                                                       upsample_factor_fft=10, show_movie=False,
-                                                                       max_deviation_rigid=max_deviation_rigid,
-                                                                       shifts_opencv=shifts_opencv, gSig_filt=gSig_filt,
-                                                                       use_cuda=use_cuda, border_nan=border_nan)
-            shift_info.append([total_shift, start_step, xy_grid])
-
-    if out_fname is not None:
-        outv = np.memmap(out_fname, mode='r+', dtype=np.float32,
-                         shape=prepare_shape(shape_mov), order='F')
-        if nonneg_movie:
-            bias = np.float32(add_to_movie)
-        else:
-            bias = 0
-        outv[:, idxs] = np.reshape(
-            mc.astype(np.float32), (len(imgs), -1), order='F').T + bias
-    new_temp = np.nanmean(mc, 0)
-    new_temp[np.isnan(new_temp)] = np.nanmin(new_temp)
-    return shift_info, idxs, new_temp
-
-
-def tile_and_correct_3d(img:np.ndarray, template:np.ndarray, strides:Tuple, overlaps:Tuple, max_shifts:Tuple, newoverlaps:Optional[Tuple]=None, newstrides:Optional[Tuple]=None, upsample_factor_grid:int=4,
-                     upsample_factor_fft:int=10, show_movie:bool=False, max_deviation_rigid:int=2, add_to_movie:int=0, shifts_opencv:bool=True, gSig_filt=None,
-                     use_cuda:bool=False, border_nan:bool=True):
-    """ perform piecewise rigid motion correction iteration, by
-        1) dividing the FOV in patches
-        2) motion correcting each patch separately
-        3) upsampling the motion correction vector field
-        4) stiching back together the corrected subpatches
-
-    Args:
-        img: ndaarray 3D
-            image to correct
-
-        template: ndarray
-            reference image
-
-        strides: tuple
-            strides of the patches in which the FOV is subdivided
-
-        overlaps: tuple
-            amount of pixel overlaping between patches along each dimension
-
-        max_shifts: tuple
-            max shifts in x, y, and z
-
-        newstrides:tuple
-            strides between patches along each dimension when upsampling the vector fields
-
-        newoverlaps:tuple
-            amount of pixel overlaping between patches along each dimension when upsampling the vector fields
-
-        upsample_factor_grid: int
-            if newshapes or newstrides are not specified this is inferred upsampling by a constant factor the cvector field
-
-        upsample_factor_fft: int
-            resolution of fractional shifts
-
-        show_movie: boolean whether to visualize the original and corrected frame during motion correction
-
-        max_deviation_rigid: int
-            maximum deviation in shifts of each patch from the rigid shift (should not be large)
-
-        add_to_movie: if movie is too negative the correction might have some issues. In this case it is good to add values so that it is non negative most of the times
-
-        filt_sig_size: tuple
-            standard deviation and size of gaussian filter to center filter data in case of one photon imaging data
-
-        use_cuda : bool, optional
-            Use skcuda.fft (if available). Default: False
-
-        border_nan : bool or string, optional
-            specifies how to deal with borders. (True, False, 'copy', 'min')
-
-    Returns:
-        (new_img, total_shifts, start_step, xyz_grid)
-            new_img: ndarray, corrected image
-
-
-    """
-
-    img = img.astype(np.float64).copy()
-    template = template.astype(np.float64).copy()
-
-    if gSig_filt is not None:
-
-        img_orig = img.copy()
-        img = high_pass_filter_space(img_orig, gSig_filt)
-
-    img = img + add_to_movie
-    template = template + add_to_movie
-
-    # compute rigid shifts
-    rigid_shts, sfr_freq, diffphase = register_translation_3d(
-        img, template, upsample_factor=upsample_factor_fft, max_shifts=max_shifts)
-
-    if max_deviation_rigid == 0: # if rigid shifts only
-
-#        if shifts_opencv:
-            # NOTE: opencv does not support 3D operations - skimage is used instead
- #       else:
-
-        if gSig_filt is not None:
-            raise Exception(
-                'The use of FFT and filtering options have not been tested. Set opencv=True')
-
-        new_img = apply_shifts_dft( # TODO: check
-            sfr_freq, (rigid_shts[0], rigid_shts[1], rigid_shts[2]), diffphase, border_nan=border_nan)
-
-        return new_img - add_to_movie, (-rigid_shts[0], -rigid_shts[1], -rigid_shts[2]), None, None
-    else:
-        # extract patches
-        templates = [
-            it[-1] for it in sliding_window_3d(template, overlaps=overlaps, strides=strides)]
-        xyz_grid = [(it[0], it[1], it[2]) for it in sliding_window_3d(
-            template, overlaps=overlaps, strides=strides)]
-        num_tiles = np.prod(np.add(xyz_grid[-1], 1))
-        imgs = [it[-1]
-                for it in sliding_window_3d(img, overlaps=overlaps, strides=strides)]
-        dim_grid = tuple(np.add(xyz_grid[-1], 1))
-
-        if max_deviation_rigid is not None:
-
-            lb_shifts = np.ceil(np.subtract(
-                rigid_shts, max_deviation_rigid)).astype(int)
-            ub_shifts = np.floor(
-                np.add(rigid_shts, max_deviation_rigid)).astype(int)
-
-        else:
-
-            lb_shifts = None
-            ub_shifts = None
-
-        # extract shifts for each patch
-        shfts_et_all = [register_translation_3d(
-            a, b, c, shifts_lb=lb_shifts, shifts_ub=ub_shifts, max_shifts=max_shifts) for a, b, c in zip(
-            imgs, templates, [upsample_factor_fft] * num_tiles)]
-        shfts = [sshh[0] for sshh in shfts_et_all]
-        diffs_phase = [sshh[2] for sshh in shfts_et_all]
-        # create a vector field
-        shift_img_x = np.reshape(np.array(shfts)[:, 0], dim_grid)
-        shift_img_y = np.reshape(np.array(shfts)[:, 1], dim_grid)
-        shift_img_z = np.reshape(np.array(shfts)[:, 2], dim_grid)
-        diffs_phase_grid = np.reshape(np.array(diffs_phase), dim_grid)
-
-        #  shifts_opencv doesn't make sense here- replace with shifts_skimage
-        if shifts_opencv:
-            if gSig_filt is not None:
-                img = img_orig
-
-            dims = img.shape
-            x_grid, y_grid, z_grid = np.meshgrid(np.arange(0., dims[1]).astype(
-                np.float32), np.arange(0., dims[0]).astype(np.float32),
-                np.arange(0., dims[2]).astype(np.float32))
-            m_reg = warp_sk(img, np.stack((resize_sk(shift_img_x.astype(np.float32), dims) + y_grid,
-                              resize_sk(shift_img_y.astype(np.float32), dims) + x_grid,
-                              resize_sk(shift_img_z.astype(np.float32), dims) + z_grid),axis=0),
-                              order=3, mode='constant')
-                             # borderValue=add_to_movie)
-            total_shifts = [
-                    (-x, -y, -z) for x, y, z in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles), shift_img_z.reshape(num_tiles))]
-            return m_reg - add_to_movie, total_shifts, None, None
-
-        # create automatically upsample parameters if not passed
-        if newoverlaps is None:
-            newoverlaps = overlaps
-        if newstrides is None:
-            newstrides = tuple(
-                np.round(np.divide(strides, upsample_factor_grid)).astype(np.int))
-
-        newshapes = np.add(newstrides, newoverlaps)
-
-        imgs = [it[-1]
-                for it in sliding_window_3d(img, overlaps=newoverlaps, strides=newstrides)]
-
-        xyz_grid = [(it[0], it[1], it[2]) for it in sliding_window_3d(
-            img, overlaps=newoverlaps, strides=newstrides)]
-
-        start_step = [(it[3], it[4], it[5]) for it in sliding_window_3d(
-            img, overlaps=newoverlaps, strides=newstrides)]
-
-        dim_new_grid = tuple(np.add(xyz_grid[-1], 1))
-
-        shift_img_x = resize_sk(
-            shift_img_x, dim_new_grid[::-1], order=3)
-        shift_img_y = resize_sk(
-            shift_img_y, dim_new_grid[::-1], order=3)
-        shift_img_z = resize_sk(
-            shift_img_z, dim_new_grid[::-1], order=3)
-        diffs_phase_grid_us = resize_sk(
-            diffs_phase_grid, dim_new_grid[::-1], order=3)
-
-        num_tiles = np.prod(dim_new_grid)
-
-        # what dimension shear should be looked at? shearing for 3d point scanning happens in y and z but no for plane-scanning
-        max_shear = np.percentile(
-            [np.max(np.abs(np.diff(ssshh, axis=xxsss))) for ssshh, xxsss in itertools.product(
-                [shift_img_x, shift_img_y], [0, 1])], 75)
-
-        total_shifts = [
-            (-x, -y, -z) for x, y, z in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles), shift_img_z.reshape(num_tiles))]
-        total_diffs_phase = [
-            dfs for dfs in diffs_phase_grid_us.reshape(num_tiles)]
-
-        if gSig_filt is not None:
-            raise Exception(
-                'The use of FFT and filtering options have not been tested. Set opencv=True')
-
-        imgs = [apply_shifts_dft(im, (
-            sh[0], sh[1], sh[2]), dffphs, is_freq=False, border_nan=border_nan) for im, sh, dffphs in zip(
-            imgs, total_shifts, total_diffs_phase)]
-
-        normalizer = np.zeros_like(img) * np.nan
-        new_img = np.zeros_like(img) * np.nan
-
-        weight_matrix = create_weight_matrix_for_blending(
-            img, newoverlaps, newstrides)
-
-        if max_shear < 0.5:
-            for (x, y, z), (_, _, _), im, (_, _, _), weight_mat in zip(start_step, xyz_grid, imgs, total_shifts, weight_matrix):
-
-                prev_val_1 = normalizer[x:x + newshapes[0], y:y + newshapes[1], z:z + newshapes[2]]
-
-                normalizer[x:x + newshapes[0], y:y + newshapes[1], z:z + newshapes[2]] = np.nansum(
-                    np.dstack([~np.isnan(im) * 1 * weight_mat, prev_val_1]), -1)
-                prev_val = new_img[x:x + newshapes[0], y:y + newshapes[1], z:z + newshapes[2]]
-                new_img[x:x + newshapes[0], y:y + newshapes[1], z:z + newshapes[2]
-                        ] = np.nansum(np.dstack([im * weight_mat, prev_val]), -1)
-
-            new_img = old_div(new_img, normalizer)
-
-        else:  # in case the difference in shift between neighboring patches is larger than 0.5 pixels we do not interpolate in the overlaping area
-            half_overlap_x = np.int(newoverlaps[0] / 2)
-            half_overlap_y = np.int(newoverlaps[1] / 2)
-            half_overlap_z = np.int(newoverlaps[2] / 2)
-
-            for (x, y, z), (idx_0, idx_1, idx_2), im, (_, _, _), weight_mat in zip(start_step, xyz_grid, imgs, total_shifts, weight_matrix):
-
-                if idx_0 == 0:
-                    x_start = x
-                else:
-                    x_start = x + half_overlap_x
-
-                if idx_1 == 0:
-                    y_start = y
-                else:
-                    y_start = y + half_overlap_y
-
-                if idx_2 == 0:
-                    z_start = z
-                else:
-                    z_start = z + half_overlap_z
-
-                x_end = x + newshapes[0]
-                y_end = y + newshapes[1]
-                z_end = z + newshapes[2]
-                new_img[x_start:x_end,y_start:y_end,
-                        z_start:z_end] = im[x_start - x:, y_start - y:, z_start -z:]
-
-        if show_movie:
-            img = apply_shifts_dft(
-                sfr_freq, (-rigid_shts[0], -rigid_shts[1], -rigid_shts[2]), diffphase, border_nan=border_nan)
-            img_show = np.vstack([new_img, img])
-
-            img_show = resize_sk(img_show, None, fx=1, fy=1, fz=1)
-
-            cv2.imshow('frame', old_div(img_show, np.percentile(template, 99)))
-            cv2.waitKey(int(1. / 500 * 1000))
-
-        else:
-            try:
-                cv2.destroyAllWindows()
-            except:
-                pass
-        return new_img - add_to_movie, total_shifts, start_step, xyz_grid
-#%%
-
-
-def register_translation_3d(src_image, target_image, upsample_factor = 1,
-                            space = "real", shifts_lb = None, shifts_ub = None,
-                            max_shifts = [10,10,10]):
-
-    """
-    Simple script for registering translation in 3D using an FFT approach.
-
-    Args:
-        src_image : ndarray
-            Reference image.
-
-        target_image : ndarray
-            Image to register.  Must be same dimensionality as ``src_image``.
-
-        upsample_factor : int, optional
-            Upsampling factor. Images will be registered to within
-            ``1 / upsample_factor`` of a pixel. For example
-            ``upsample_factor == 20`` means the images will be registered
-            within 1/20th of a pixel.  Default is 1 (no upsampling)
-
-        space : string, one of "real" or "fourier"
-            Defines how the algorithm interprets input data.  "real" means data
-            will be FFT'd to compute the correlation, while "fourier" data will
-            bypass FFT of input data.  Case insensitive.
-
-    Returns:
-        shifts : ndarray
-            Shift vector (in pixels) required to register ``target_image`` with
-            ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
-
-        error : float
-            Translation invariant normalized RMS error between ``src_image`` and
-            ``target_image``.
-
-        phasediff : float
-            Global phase difference between the two images (should be
-            zero if images are non-negative).
-
-    Raises:
-     NotImplementedError "Error: register_translation_3d only supports "
-                                  "subpixel registration for 3D images"
-
-     ValueError "Error: images must really be same size for "
-                         "register_translation_3d"
-
-     ValueError "Error: register_translation_3d only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument."
-
-    """
-
-    # images must be the same shape
-    if src_image.shape != target_image.shape:
-        raise ValueError("Error: images must really be same size for "
-                         "register_translation_3d")
-
-    # only 3D data makes sense right now
-    if src_image.ndim != 3 and upsample_factor > 1:
-        raise NotImplementedError("Error: register_translation_3d only supports "
-                                  "subpixel registration for 3D images")
-
-    # assume complex data is already in Fourier space
-    if space.lower() == 'fourier':
-        src_freq = src_image
-        target_freq = target_image
-    # real data needs to be fft'd.
-    elif space.lower() == 'real':
-        src_image_cpx = np.array(
-            src_image, dtype=np.complex64, copy=False)
-        target_image_cpx = np.array(
-            target_image, dtype=np.complex64, copy=False)
-        src_freq = np.fft.fftn(src_image_cpx)
-        target_freq = np.fft.fftn(target_image_cpx)
-    else:
-        raise ValueError("Error: register_translation_3d only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument.")
-
-    shape = src_freq.shape
-    image_product = src_freq * target_freq.conj()
-    cross_correlation = np.fft.ifftn(image_product)
-#    cross_correlation = ifftn(image_product) # TODO CHECK why this line is different
-    new_cross_corr = np.abs(cross_correlation)
-
-    CCmax = cross_correlation.max()
-
-    del cross_correlation
-
-    if (shifts_lb is not None) or (shifts_ub is not None):
-
-        if (shifts_lb[0] < 0) and (shifts_ub[0] >= 0):
-            new_cross_corr[shifts_ub[0]:shifts_lb[0], :, :] = 0
-        else:
-            new_cross_corr[:shifts_lb[0], :, :] = 0
-            new_cross_corr[shifts_ub[0]:, :, :] = 0
-
-        if (shifts_lb[1] < 0) and (shifts_ub[1] >= 0):
-            new_cross_corr[:, shifts_ub[1]:shifts_lb[1], :] = 0
-        else:
-            new_cross_corr[:, :shifts_lb[1], :] = 0
-            new_cross_corr[:, shifts_ub[1]:, :] = 0
-
-        if (shifts_lb[2] < 0) and (shifts_ub[2] >= 0):
-            new_cross_corr[:, :, shifts_ub[2]:shifts_lb[2]] = 0
-        else:
-            new_cross_corr[:, :, :shifts_lb[2]] = 0
-            new_cross_corr[:, :, shifts_ub[2]:] = 0
-    else:
-        new_cross_corr[max_shifts[0]:-max_shifts[0], :, :] = 0
-        new_cross_corr[:, max_shifts[1]:-max_shifts[1], :] = 0
-        new_cross_corr[:, :, max_shifts[2]:-max_shifts[2]] = 0
-
-    maxima = np.unravel_index(np.argmax(new_cross_corr), new_cross_corr.shape)
-    midpoints = np.array([np.fix(axis_size//2) for axis_size in shape])
-
-#    maxima = np.unravel_index(np.argmax(new_cross_corr),cross_correlation.shape)
-#    midpoints = np.array([np.fix(old_div(axis_size, 2)) for axis_size in shape])
-
-    shifts = np.array(maxima, dtype=np.float32)
-    shifts[shifts > midpoints] -= np.array(shape)[shifts > midpoints]
-
-
-    if upsample_factor > 1:
-
-        shifts = old_div(np.round(shifts * upsample_factor), upsample_factor)
-        upsampled_region_size = np.ceil(upsample_factor * 1.5)
-        # Center of output array at dftshift + 1
-        dftshift = np.fix(old_div(upsampled_region_size, 2.0))
-        upsample_factor = np.array(upsample_factor, dtype=np.float64)
-        normalization = (src_freq.size * upsample_factor ** 2)
-        # Matrix multiply DFT around the current shift estimate
-        sample_region_offset = dftshift - shifts * upsample_factor
-
-        cross_correlation = _upsampled_dft(image_product.conj(),
-                                           upsampled_region_size,
-                                           upsample_factor,
-                                           sample_region_offset).conj()
-        cross_correlation /= normalization
-        # Locate maximum and map back to original pixel grid
-        maxima = np.array(np.unravel_index(
-            np.argmax(np.abs(cross_correlation)),
-            cross_correlation.shape),
-            dtype=np.float64)
-        maxima -= dftshift
-        shifts = shifts + old_div(maxima, upsample_factor)
-        CCmax = cross_correlation.max()
-
-    for dim in range(src_freq.ndim):
-        if shape[dim] == 1:
-            shifts[dim] = 0
-
-    return shifts, src_freq, _compute_phasediff(CCmax)
 
 def _upsampled_dft(data, upsampled_region_size,
                    upsample_factor=1, axis_offsets=None):
@@ -3512,432 +3327,3 @@ def create_weight_matrix_for_blending(img, overlaps, strides):
                                                       overlaps[1]:] * np.linspace(1, 0, overlaps[1])[None, :]
 
         yield weight_mat
-
-def register_translation_3d(src_image, target_image, upsample_factor = 1,
-                            space = "real", shifts_lb = None, shifts_ub = None,
-                            max_shifts = [10,10,10]):
-
-    """
-    Simple script for registering translation in 3D using an FFT approach.
-
-    Args:
-        src_image : ndarray
-            Reference image.
-
-        target_image : ndarray
-            Image to register.  Must be same dimensionality as ``src_image``.
-
-        upsample_factor : int, optional
-            Upsampling factor. Images will be registered to within
-            ``1 / upsample_factor`` of a pixel. For example
-            ``upsample_factor == 20`` means the images will be registered
-            within 1/20th of a pixel.  Default is 1 (no upsampling)
-
-        space : string, one of "real" or "fourier"
-            Defines how the algorithm interprets input data.  "real" means data
-            will be FFT'd to compute the correlation, while "fourier" data will
-            bypass FFT of input data.  Case insensitive.
-
-    Returns:
-        shifts : ndarray
-            Shift vector (in pixels) required to register ``target_image`` with
-            ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
-
-        error : float
-            Translation invariant normalized RMS error between ``src_image`` and
-            ``target_image``.
-
-        phasediff : float
-            Global phase difference between the two images (should be
-            zero if images are non-negative).
-
-    Raises:
-     NotImplementedError "Error: register_translation_3d only supports "
-                                  "subpixel registration for 3D images"
-
-     ValueError "Error: images must really be same size for "
-                         "register_translation_3d"
-
-     ValueError "Error: register_translation_3d only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument."
-
-    """
-
-    # images must be the same shape
-    if src_image.shape != target_image.shape:
-        raise ValueError("Error: images must really be same size for "
-                         "register_translation_3d")
-
-    # only 3D data makes sense right now
-    if src_image.ndim != 3 and upsample_factor > 1:
-        raise NotImplementedError("Error: register_translation_3d only supports "
-                                  "subpixel registration for 3D images")
-
-    # assume complex data is already in Fourier space
-    if space.lower() == 'fourier':
-        src_freq = src_image
-        target_freq = target_image
-    # real data needs to be fft'd.
-    elif space.lower() == 'real':
-        src_image_cpx = np.array(
-            src_image, dtype=np.complex64, copy=False)
-        target_image_cpx = np.array(
-            target_image, dtype=np.complex64, copy=False)
-        src_freq = np.fft.fftn(src_image_cpx)
-        target_freq = np.fft.fftn(target_image_cpx)
-    else:
-        raise ValueError("Error: register_translation_3d only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument.")
-
-    shape = src_freq.shape
-    image_product = src_freq * target_freq.conj()
-    cross_correlation = np.fft.ifftn(image_product)
-#    cross_correlation = ifftn(image_product) # TODO CHECK why this line is different
-    new_cross_corr = np.abs(cross_correlation)
-
-    CCmax = cross_correlation.max()
-
-    del cross_correlation
-
-    if (shifts_lb is not None) or (shifts_ub is not None):
-
-        if (shifts_lb[0] < 0) and (shifts_ub[0] >= 0):
-            new_cross_corr[shifts_ub[0]:shifts_lb[0], :, :] = 0
-        else:
-            new_cross_corr[:shifts_lb[0], :, :] = 0
-            new_cross_corr[shifts_ub[0]:, :, :] = 0
-
-        if (shifts_lb[1] < 0) and (shifts_ub[1] >= 0):
-            new_cross_corr[:, shifts_ub[1]:shifts_lb[1], :] = 0
-        else:
-            new_cross_corr[:, :shifts_lb[1], :] = 0
-            new_cross_corr[:, shifts_ub[1]:, :] = 0
-
-        if (shifts_lb[2] < 0) and (shifts_ub[2] >= 0):
-            new_cross_corr[:, :, shifts_ub[2]:shifts_lb[2]] = 0
-        else:
-            new_cross_corr[:, :, :shifts_lb[2]] = 0
-            new_cross_corr[:, :, shifts_ub[2]:] = 0
-    else:
-        new_cross_corr[max_shifts[0]:-max_shifts[0], :, :] = 0
-        new_cross_corr[:, max_shifts[1]:-max_shifts[1], :] = 0
-        new_cross_corr[:, :, max_shifts[2]:-max_shifts[2]] = 0
-
-    maxima = np.unravel_index(np.argmax(new_cross_corr), new_cross_corr.shape)
-    midpoints = np.array([np.fix(axis_size//2) for axis_size in shape])
-
-#    maxima = np.unravel_index(np.argmax(new_cross_corr),cross_correlation.shape)
-#    midpoints = np.array([np.fix(old_div(axis_size, 2)) for axis_size in shape])
-
-    shifts = np.array(maxima, dtype=np.float32)
-    shifts[shifts > midpoints] -= np.array(shape)[shifts > midpoints]
-
-
-    if upsample_factor > 1:
-
-        shifts = old_div(np.round(shifts * upsample_factor), upsample_factor)
-        upsampled_region_size = np.ceil(upsample_factor * 1.5)
-        # Center of output array at dftshift + 1
-        dftshift = np.fix(old_div(upsampled_region_size, 2.0))
-        upsample_factor = np.array(upsample_factor, dtype=np.float64)
-        normalization = (src_freq.size * upsample_factor ** 2)
-        # Matrix multiply DFT around the current shift estimate
-        sample_region_offset = dftshift - shifts * upsample_factor
-
-        cross_correlation = _upsampled_dft(image_product.conj(),
-                                           upsampled_region_size,
-                                           upsample_factor,
-                                           sample_region_offset).conj()
-        cross_correlation /= normalization
-        # Locate maximum and map back to original pixel grid
-        maxima = np.array(np.unravel_index(
-            np.argmax(np.abs(cross_correlation)),
-            cross_correlation.shape),
-            dtype=np.float64)
-        maxima -= dftshift
-        shifts = shifts + old_div(maxima, upsample_factor)
-        CCmax = cross_correlation.max()
-
-    for dim in range(src_freq.ndim):
-        if shape[dim] == 1:
-            shifts[dim] = 0
-
-    return shifts, src_freq, _compute_phasediff(CCmax)
-
-def register_translation(src_image, target_image, upsample_factor=1,
-                         space="real", shifts_lb=None, shifts_ub=None, max_shifts=(10, 10),
-                         use_cuda=False):
-    """
-
-    adapted from SIMA (https://github.com/losonczylab) and the
-    scikit-image (http://scikit-image.org/) package.
-
-
-    Unless otherwise specified by LICENSE.txt files in individual
-    directories, all code is
-
-    Copyright (C) 2011, the scikit-image team
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are
-    met:
-
-     1. Redistributions of source code must retain the above copyright
-        notice, this list of conditions and the following disclaimer.
-     2. Redistributions in binary form must reproduce the above copyright
-        notice, this list of conditions and the following disclaimer in
-        the documentation and/or other materials provided with the
-        distribution.
-     3. Neither the name of skimage nor the names of its contributors may be
-        used to endorse or promote products derived from this software without
-        specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-    IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-    DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
-    INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-    SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-    STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
-    IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
-    Efficient subpixel image translation registration by cross-correlation.
-
-    This code gives the same precision as the FFT upsampled cross-correlation
-    in a fraction of the computation time and with reduced memory requirements.
-    It obtains an initial estimate of the cross-correlation peak by an FFT and
-    then refines the shift estimation by upsampling the DFT only in a small
-    neighborhood of that estimate by means of a matrix-multiply DFT.
-
-    Args:
-        src_image : ndarray
-            Reference image.
-
-        target_image : ndarray
-            Image to register.  Must be same dimensionality as ``src_image``.
-
-        upsample_factor : int, optional
-            Upsampling factor. Images will be registered to within
-            ``1 / upsample_factor`` of a pixel. For example
-            ``upsample_factor == 20`` means the images will be registered
-            within 1/20th of a pixel.  Default is 1 (no upsampling)
-
-        space : string, one of "real" or "fourier"
-            Defines how the algorithm interprets input data.  "real" means data
-            will be FFT'd to compute the correlation, while "fourier" data will
-            bypass FFT of input data.  Case insensitive.
-
-        use_cuda : bool, optional
-            Use skcuda.fft (if available). Default: False
-
-    Returns:
-        shifts : ndarray
-            Shift vector (in pixels) required to register ``target_image`` with
-            ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
-
-        error : float
-            Translation invariant normalized RMS error between ``src_image`` and
-            ``target_image``.
-
-        phasediff : float
-            Global phase difference between the two images (should be
-            zero if images are non-negative).
-
-    Raises:
-     NotImplementedError "Error: register_translation only supports "
-                                  "subpixel registration for 2D images"
-
-     ValueError "Error: images must really be same size for "
-                         "register_translation"
-
-     ValueError "Error: register_translation only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument."
-
-    References:
-    .. [1] Manuel Guizar-Sicairos, Samuel T. Thurman, and James R. Fienup,
-           "Efficient subpixel image registration algorithms,"
-           Optics Letters 33, 156-158 (2008).
-    """
-    # images must be the same shape
-    if src_image.shape != target_image.shape:
-        raise ValueError("Error: images must really be same size for "
-                         "register_translation")
-
-    # only 2D data makes sense right now
-    if src_image.ndim != 2 and upsample_factor > 1:
-        raise NotImplementedError("Error: register_translation only supports "
-                                  "subpixel registration for 2D images")
-
-    if HAS_CUDA and use_cuda:
-        # from skcuda.fft import Plan
-        # from skcuda.fft import fft as cudafft
-        # from skcuda.fft import ifft as cudaifft
-        # try:
-        #     cudactx # type: ignore
-        # except NameError:
-        #     init_cuda_process()
-        print("**to_julia** currently not implemented")
-        sys.exit(2)
-
-
-    # assume complex data is already in Fourier space
-    if space.lower() == 'fourier':
-        src_freq = src_image
-        target_freq = target_image
-    # real data needs to be fft'd.
-    elif space.lower() == 'real':
-        if HAS_CUDA and use_cuda:
-            # # src_image_cpx = np.array(src_image, dtype=np.complex128, copy=False)
-            # # target_image_cpx = np.array(target_image, dtype=np.complex128, copy=False)
-            #
-            # image_gpu = gpuarray.to_gpu(np.stack((src_image, target_image)).astype(np.complex128))
-            # freq_gpu = gpuarray.empty((2, src_image.shape[0], src_image.shape[1]), dtype=np.complex128)
-            # # src_image_gpu = gpuarray.to_gpu(src_image_cpx)
-            # # src_freq_gpu = gpuarray.empty(src_image_cpx.shape, np.complex128)
-            #
-            # # target_image_gpu = gpuarray.to_gpu(target_image_cpx)
-            # # target_freq_gpu = gpuarray.empty(target_image_cpx.shape, np.complex128)
-            #
-            # plan = Plan(src_image.shape, np.complex128, np.complex128, batch=2)
-            # # cudafft(src_image_gpu, src_freq_gpu, plan, scale=True)
-            # # cudafft(target_image_gpu, target_freq_gpu, plan, scale=True)
-            # cudafft(image_gpu, freq_gpu, plan, scale=True)
-            # # src_freq = src_freq_gpu.get()
-            # # target_freq = target_freq_gpu.get()
-            # freq = freq_gpu.get()
-            # src_freq = freq[0, :, :]
-            # target_freq = freq[1, :, :]
-            #
-            # # del(src_image_gpu)
-            # # del(src_freq_gpu)
-            # # del(target_image_gpu)
-            # # del(target_freq_gpu)
-            # del(image_gpu)
-            # del(freq_gpu)
-
-            print("**to_julia** currently not implemented")
-            sys.exit(2)
-
-        elif opencv:
-            src_freq_1 = fftn(
-                src_image, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
-            src_freq = src_freq_1[:, :, 0] + 1j * src_freq_1[:, :, 1]
-            src_freq = np.array(src_freq, dtype=np.complex128, copy=False)
-            target_freq_1 = fftn(
-                target_image, flags=cv2.DFT_COMPLEX_OUTPUT + cv2.DFT_SCALE)
-            target_freq = target_freq_1[:, :, 0] + 1j * target_freq_1[:, :, 1]
-            target_freq = np.array(
-                target_freq, dtype=np.complex128, copy=False)
-        else:
-            src_image_cpx = np.array(
-                src_image, dtype=np.complex128, copy=False)
-            target_image_cpx = np.array(
-                target_image, dtype=np.complex128, copy=False)
-            src_freq = np.fft.fftn(src_image_cpx)
-            target_freq = np.fft.fftn(target_image_cpx)
-
-    else:
-        raise ValueError("Error: register_translation only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument.")
-
-    # Whole-pixel shift - Compute cross-correlation by an IFFT
-    shape = src_freq.shape
-    image_product = src_freq * target_freq.conj()
-    if HAS_CUDA and use_cuda:
-        # image_product_gpu = gpuarray.to_gpu(image_product)
-        # cross_correlation_gpu = gpuarray.empty(
-        #     image_product.shape, np.complex128)
-        # iplan = Plan(image_product.shape, np.complex128, np.complex128)
-        # cudaifft(image_product_gpu, cross_correlation_gpu, iplan, scale=True)
-        # cross_correlation = cross_correlation_gpu.get()
-        print("**to_julia** currently not implemented")
-        sys.exit(2)
-    elif opencv:
-
-        image_product_cv = np.dstack(
-            [np.real(image_product), np.imag(image_product)])
-        cross_correlation = fftn(
-            image_product_cv, flags=cv2.DFT_INVERSE + cv2.DFT_SCALE)
-        cross_correlation = cross_correlation[:,
-                                              :, 0] + 1j * cross_correlation[:, :, 1]
-    else:
-        cross_correlation = ifftn(image_product)
-
-    # Locate maximum
-    new_cross_corr = np.abs(cross_correlation)
-
-    if (shifts_lb is not None) or (shifts_ub is not None):
-
-        if (shifts_lb[0] < 0) and (shifts_ub[0] >= 0):
-            new_cross_corr[shifts_ub[0]:shifts_lb[0], :] = 0
-        else:
-            new_cross_corr[:shifts_lb[0], :] = 0
-            new_cross_corr[shifts_ub[0]:, :] = 0
-
-        if (shifts_lb[1] < 0) and (shifts_ub[1] >= 0):
-            new_cross_corr[:, shifts_ub[1]:shifts_lb[1]] = 0
-        else:
-            new_cross_corr[:, :shifts_lb[1]] = 0
-            new_cross_corr[:, shifts_ub[1]:] = 0
-    else:
-
-        new_cross_corr[max_shifts[0]:-max_shifts[0], :] = 0
-
-        new_cross_corr[:, max_shifts[1]:-max_shifts[1]] = 0
-
-    maxima = np.unravel_index(np.argmax(new_cross_corr),
-                              cross_correlation.shape)
-    midpoints = np.array([np.fix(old_div(axis_size, 2))
-                          for axis_size in shape])
-
-    shifts = np.array(maxima, dtype=np.float64)
-    shifts[shifts > midpoints] -= np.array(shape)[shifts > midpoints]
-
-    if upsample_factor == 1:
-
-        src_amp = old_div(np.sum(np.abs(src_freq) ** 2), src_freq.size)
-        target_amp = old_div(
-            np.sum(np.abs(target_freq) ** 2), target_freq.size)
-        CCmax = cross_correlation.max()
-    # If upsampling > 1, then refine estimate with matrix multiply DFT
-    else:
-        # Initial shift estimate in upsampled grid
-        shifts = old_div(np.round(shifts * upsample_factor), upsample_factor)
-        upsampled_region_size = np.ceil(upsample_factor * 1.5)
-        # Center of output array at dftshift + 1
-        dftshift = np.fix(old_div(upsampled_region_size, 2.0))
-        upsample_factor = np.array(upsample_factor, dtype=np.float64)
-        normalization = (src_freq.size * upsample_factor ** 2)
-        # Matrix multiply DFT around the current shift estimate
-        sample_region_offset = dftshift - shifts * upsample_factor
-
-        cross_correlation = _upsampled_dft(image_product.conj(),
-                                           upsampled_region_size,
-                                           upsample_factor,
-                                           sample_region_offset).conj()
-        cross_correlation /= normalization
-        # Locate maximum and map back to original pixel grid
-        maxima = np.array(np.unravel_index(
-            np.argmax(np.abs(cross_correlation)),
-            cross_correlation.shape),
-            dtype=np.float64)
-        maxima -= dftshift
-        shifts = shifts + old_div(maxima, upsample_factor)
-        CCmax = cross_correlation.max()
-        src_amp = _upsampled_dft(src_freq * src_freq.conj(),
-                                 1, upsample_factor)[0, 0]
-        src_amp /= normalization
-        target_amp = _upsampled_dft(target_freq * target_freq.conj(),
-                                    1, upsample_factor)[0, 0]
-        target_amp /= normalization
-
-    # If its only one row or column the shift along that dimension has no
-    # effect. We set to zero.
-    for dim in range(src_freq.ndim):
-        if shape[dim] == 1:
-            shifts[dim] = 0
-
-    return shifts, src_freq, _compute_phasediff(CCmax)
