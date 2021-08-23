@@ -1,0 +1,6 @@
+motion_correct_rigid
+    motion_correct_batch_rigid (multiple iterations; for us == 1)
+        motion_correction_piecewise (splits in time/Z)
+            tile_and_correct_wrapper (??)
+                tile_and_correct (does something with shifts)
+                    register_translation (actual registration)
