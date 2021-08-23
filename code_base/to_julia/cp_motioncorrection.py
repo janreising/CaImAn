@@ -180,37 +180,23 @@ class MotionCorrect(object):
         """
         # TODO: Review the docs here, and also why we would ever return self
         #       from a method that is not a constructor
-        if self.min_mov is None:
-            if self.gSig_filt is None:
-                # self.min_mov = np.array([cm.load(self.fname[0],
-                #                                  var_name_hdf5=self.var_name_hdf5,
-                #                                  subindices=slice(400))]).min()
-                iterator = load_iter(self.fname[0], var_name_hdf5=self.var_name_hdf5)
-                mi = np.inf
-                for _ in range(400):
-                    try:
-                        mi = min(mi, next(iterator).min()[()])
-                    except StopIteration:
-                        break
-                self.min_mov = mi
-            else:
-                self.min_mov = np.array([high_pass_filter_space(m_, self.gSig_filt)
-                    for m_ in load(self.fname[0], var_name_hdf5=self.var_name_hdf5,
-                                      subindices=slice(400))]).min()
+
+        assert self.gSig_filt is not None, "**to_julia** removed"
+
+        self.min_mov = np.array([high_pass_filter_space(m_, self.gSig_filt)
+            for m_ in load(self.fname[0], var_name_hdf5=self.var_name_hdf5,
+                              subindices=slice(400))]).min()  #TODO why is the 400 hardcoded here?
 
         if self.pw_rigid:
             self.motion_correct_pwrigid(template=template, save_movie=save_movie)
-            if self.is3D:
-                # TODO - error at this point after saving
-                b0 = np.ceil(np.max([np.max(np.abs(self.x_shifts_els)),
-                                     np.max(np.abs(self.y_shifts_els)),
-                                     np.max(np.abs(self.z_shifts_els))]))
-            else:
-                b0 = np.ceil(np.maximum(np.max(np.abs(self.x_shifts_els)),
-                                    np.max(np.abs(self.y_shifts_els))))
+            assert self.is3D is None, "**to_julia** removed"
+
+            b0 = np.ceil(np.maximum(np.max(np.abs(self.x_shifts_els)),
+                                np.max(np.abs(self.y_shifts_els))))
         else:
             self.motion_correct_rigid(template=template, save_movie=save_movie)
             b0 = np.ceil(np.max(np.abs(self.shifts_rig)))
+
         self.border_to_0 = b0.astype(np.int)
         self.mmap_file = self.fname_tot_els if self.pw_rigid else self.fname_tot_rig
         return self
@@ -1015,38 +1001,32 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
 
     """
 
+    ## get dimensions and load file to memory
     dims, T = get_file_size(fname, var_name_hdf5=var_name_hdf5)
     Ts = np.arange(T)[subidx].shape[0]
-    step = Ts // 10 if is3D else Ts // 50
+    step =  Ts // 50
     corrected_slicer = slice(subidx.start, subidx.stop, step + 1)
     m = load(fname, var_name_hdf5=var_name_hdf5, subindices=corrected_slicer)
 
-    if len(m.shape) < 3:
-        m = load(fname, var_name_hdf5=var_name_hdf5)
-        m = m[corrected_slicer]
-        logging.warning("Your original file was saved as a single page " +
-                        "file. Consider saving it in multiple smaller files" +
-                        "with size smaller than 4GB (if it is a .tif file)")
+    # if len(m.shape) < 3:
+    #     m = load(fname, var_name_hdf5=var_name_hdf5)
+    #     m = m[corrected_slicer]
+    #     logging.warning("Your original file was saved as a single page " +
+    #                     "file. Consider saving it in multiple smaller files" +
+    #                     "with size smaller than 4GB (if it is a .tif file)")
 
-    if is3D:
-        m = m[:, indices[0], indices[1], indices[2]]
-    else:
-        m = m[:, indices[0], indices[1]]
+
+    m = m[:, indices[0], indices[1]]
 
     if template is None:
         if gSig_filt is not None:
             m = movie(
                 np.array([high_pass_filter_space(m_, gSig_filt) for m_ in m]))
-        if is3D:
-            # TODO - motion_correct_3d needs to be implemented in movies.py
-            template = bin_median_3d(m) # motion_correct_3d has not been implemented yet - instead initialize to just median image
-#            template = caiman.motion_correction.bin_median_3d(
-#                    m.motion_correct_3d(max_shifts[2], max_shifts[1], max_shifts[0], template=None)[0])
-        else:
-            if not m.flags['WRITEABLE']:
-                m = m.copy()
-            template = bin_median(
-                    m.motion_correct(max_shifts[1], max_shifts[0], template=None)[0])
+
+        if not m.flags['WRITEABLE']:
+            m = m.copy()
+
+        template = bin_median(m.motion_correct(max_shifts[1], max_shifts[0], template=None)[0])
 
     new_templ = template
     if add_to_movie is None:
@@ -1068,7 +1048,6 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
             save_movie = save_movie_rigid
             logging.debug('saving!')
 
-
         if isinstance(fname, tuple):
             base_name=os.path.split(fname[0])[-1][:-4] + '_rig_'
         else:
@@ -1080,14 +1059,11 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
                                                              num_splits=num_splits_to_process, shifts_opencv=shifts_opencv, nonneg_movie=nonneg_movie, gSig_filt=gSig_filt,
                                                              use_cuda=use_cuda, border_nan=border_nan, var_name_hdf5=var_name_hdf5, is3D=is3D,
                                                              indices=indices)
-        if is3D:
-            new_templ = np.nanmedian(np.stack([r[-1] for r in res_rig]), 0)
-        else:
-            new_templ = np.nanmedian(np.dstack([r[-1] for r in res_rig]), -1)
+
+        new_templ = np.nanmedian(np.dstack([r[-1] for r in res_rig]), -1)
+
         if gSig_filt is not None:
             new_templ = high_pass_filter_space(new_templ, gSig_filt)
-
-#        logging.debug((old_div(np.linalg.norm(new_templ - old_templ), np.linalg.norm(old_templ))))
 
     total_template = new_templ
     templates = []
@@ -1241,6 +1217,339 @@ def motion_correct_batch_pwrigid(fname, max_shifts, strides, overlaps, add_to_mo
                 coord_shifts.append(xy_grid)
 
     return fname_tot_els, total_template, templates, x_shifts, y_shifts, z_shifts, coord_shifts
+
+
+def motion_correction_piecewise(fname, splits, strides, overlaps, add_to_movie=0, template=None,
+                                max_shifts=(12, 12), max_deviation_rigid=3, newoverlaps=None, newstrides=None,
+                                upsample_factor_grid=4, order='F', dview=None, save_movie=True,
+                                base_name=None, subidx = None, num_splits=None, shifts_opencv=False, nonneg_movie=False, gSig_filt=None,
+                                use_cuda=False, border_nan=True, var_name_hdf5='mov', is3D=False,
+                                indices=(slice(None), slice(None))):
+    """
+
+    """
+    # todo todocument
+    if isinstance(fname, tuple):
+        name, extension = os.path.splitext(fname[0])[:2]
+    else:
+        name, extension = os.path.splitext(fname)[:2]
+    extension = extension.lower()
+    is_fiji = False
+
+    dims, T = get_file_size(fname, var_name_hdf5=var_name_hdf5)
+    z = np.zeros(dims)
+    dims = z[indices].shape
+    logging.debug('Number of Splits: {}'.format(splits))
+    if isinstance(splits, int):
+        if subidx is None:
+            rng = range(T)
+        else:
+            rng = range(T)[subidx]
+
+        idxs = np.array_split(list(rng), splits)
+
+    else:
+        idxs = splits
+        save_movie = False
+    if template is None:
+        raise Exception('Not implemented')
+
+    shape_mov = (np.prod(dims), T)
+
+    if num_splits is not None:
+        idxs = np.array(idxs)[np.random.randint(0, len(idxs), num_splits)]
+        save_movie = False
+        #logging.warning('**** MOVIE NOT SAVED BECAUSE num_splits is not None ****')
+
+    if save_movie:
+        if base_name is None:
+            base_name = os.path.split(fname)[1][:-4]
+        fname_tot:Optional[str] = memmap_frames_filename(base_name, dims, T, order)
+        if isinstance(fname, tuple):
+            fname_tot = os.path.join(os.path.split(fname[0])[0], fname_tot)
+        else:
+            fname_tot = os.path.join(os.path.split(fname)[0], fname_tot)
+
+        np.memmap(fname_tot, mode='w+', dtype=np.float32,
+                  shape=prepare_shape(shape_mov), order=order)
+        logging.info('Saving file as {}'.format(fname_tot))
+    else:
+        fname_tot = None
+
+    pars = []
+    for idx in idxs:
+        logging.debug('Processing: frames: {}'.format(idx))
+        pars.append([fname, fname_tot, idx, shape_mov, template, strides, overlaps, max_shifts, np.array(
+            add_to_movie, dtype=np.float32), max_deviation_rigid, upsample_factor_grid,
+            newoverlaps, newstrides, shifts_opencv, nonneg_movie, gSig_filt, is_fiji,
+            use_cuda, border_nan, var_name_hdf5, is3D, indices])
+
+    if dview is not None:
+        logging.info('** Starting parallel motion correction **')
+        if HAS_CUDA and use_cuda:
+            # res = dview.map(tile_and_correct_wrapper,pars)
+            # dview.map(close_cuda_process, range(len(pars)))
+            print("**to_julia** not implemented the moment")
+            sys.exit(2)
+            # **to_julia** not interesting for us for now
+        elif 'multiprocessing' in str(type(dview)):
+            res = dview.map_async(tile_and_correct_wrapper, pars).get(4294967)
+        else:
+            res = dview.map_sync(tile_and_correct_wrapper, pars)
+        logging.info('** Finished parallel motion correction **')
+    else:
+        res = list(map(tile_and_correct_wrapper, pars))
+
+    return fname_tot, res
+
+
+def tile_and_correct(img, template, strides, overlaps, max_shifts, newoverlaps=None, newstrides=None, upsample_factor_grid=4,
+                     upsample_factor_fft=10, show_movie=False, max_deviation_rigid=2, add_to_movie=0, shifts_opencv=False, gSig_filt=None,
+                     use_cuda=False, border_nan=True):
+    """ perform piecewise rigid motion correction iteration, by
+        1) dividing the FOV in patches
+        2) motion correcting each patch separately
+        3) upsampling the motion correction vector field
+        4) stiching back together the corrected subpatches
+
+    Args:
+        img: ndaarray 2D
+            image to correct
+
+        template: ndarray
+            reference image
+
+        strides: tuple
+            strides of the patches in which the FOV is subdivided
+
+        overlaps: tuple
+            amount of pixel overlaping between patches along each dimension
+
+        max_shifts: tuple
+            max shifts in x and y
+
+        newstrides:tuple
+            strides between patches along each dimension when upsampling the vector fields
+
+        newoverlaps:tuple
+            amount of pixel overlaping between patches along each dimension when upsampling the vector fields
+
+        upsample_factor_grid: int
+            if newshapes or newstrides are not specified this is inferred upsampling by a constant factor the cvector field
+
+        upsample_factor_fft: int
+            resolution of fractional shifts
+
+        show_movie: boolean whether to visualize the original and corrected frame during motion correction
+
+        max_deviation_rigid: int
+            maximum deviation in shifts of each patch from the rigid shift (should not be large)
+
+        add_to_movie: if movie is too negative the correction might have some issues. In this case it is good to add values so that it is non negative most of the times
+
+        filt_sig_size: tuple
+            standard deviation and size of gaussian filter to center filter data in case of one photon imaging data
+
+        use_cuda : bool, optional
+            Use skcuda.fft (if available). Default: False
+
+        border_nan : bool or string, optional
+            specifies how to deal with borders. (True, False, 'copy', 'min')
+
+    Returns:
+        (new_img, total_shifts, start_step, xy_grid)
+            new_img: ndarray, corrected image
+
+
+    """
+
+    img = img.astype(np.float64).copy()
+    template = template.astype(np.float64).copy()
+
+    # High Pass Filter with gSig_filt
+    if gSig_filt is not None:
+
+        img_orig = img.copy()
+        img = high_pass_filter_space(img_orig, gSig_filt)
+
+    img = img + add_to_movie
+    template = template + add_to_movie
+
+    # compute rigid shifts
+    rigid_shts, sfr_freq, diffphase = register_translation(
+        img, template, upsample_factor=upsample_factor_fft, max_shifts=max_shifts, use_cuda=use_cuda)
+
+    ## max_deviation_rigid is 3 for us
+    if max_deviation_rigid == 0:
+
+        if shifts_opencv:
+            if gSig_filt is not None:
+                img = img_orig
+
+            new_img = apply_shift_iteration(
+                img, (-rigid_shts[0], -rigid_shts[1]), border_nan=border_nan)
+
+        else:
+
+            if gSig_filt is not None:
+                raise Exception(
+                    'The use of FFT and filtering options have not been tested. Set opencv=True')
+
+            new_img = apply_shifts_dft(
+                sfr_freq, (-rigid_shts[0], -rigid_shts[1]), diffphase, border_nan=border_nan)
+
+        return new_img - add_to_movie, (-rigid_shts[0], -rigid_shts[1]), None, None
+    else:
+        # extract patches
+        templates = [
+            it[-1] for it in sliding_window(template, overlaps=overlaps, strides=strides)]
+        xy_grid = [(it[0], it[1]) for it in sliding_window(
+            template, overlaps=overlaps, strides=strides)]
+        num_tiles = np.prod(np.add(xy_grid[-1], 1))
+        imgs = [it[-1]
+                for it in sliding_window(img, overlaps=overlaps, strides=strides)]
+        dim_grid = tuple(np.add(xy_grid[-1], 1))
+
+        if max_deviation_rigid is not None:
+
+            lb_shifts = np.ceil(np.subtract(
+                rigid_shts, max_deviation_rigid)).astype(int)
+            ub_shifts = np.floor(
+                np.add(rigid_shts, max_deviation_rigid)).astype(int)
+
+        else:
+
+            lb_shifts = None
+            ub_shifts = None
+
+        # extract shifts for each patch
+        shfts_et_all = [register_translation(
+            a, b, c, shifts_lb=lb_shifts, shifts_ub=ub_shifts, max_shifts=max_shifts, use_cuda=use_cuda) for a, b, c in zip(
+            imgs, templates, [upsample_factor_fft] * num_tiles)]
+        shfts = [sshh[0] for sshh in shfts_et_all]
+        diffs_phase = [sshh[2] for sshh in shfts_et_all]
+        # create a vector field
+        shift_img_x = np.reshape(np.array(shfts)[:, 0], dim_grid)
+        shift_img_y = np.reshape(np.array(shfts)[:, 1], dim_grid)
+        diffs_phase_grid = np.reshape(np.array(diffs_phase), dim_grid)
+
+        if shifts_opencv:
+            if gSig_filt is not None:
+                img = img_orig
+
+            dims = img.shape
+            x_grid, y_grid = np.meshgrid(np.arange(0., dims[1]).astype(
+                np.float32), np.arange(0., dims[0]).astype(np.float32))
+            m_reg = cv2.remap(img, cv2.resize(shift_img_y.astype(np.float32), dims[::-1]) + x_grid,
+                              cv2.resize(shift_img_x.astype(np.float32), dims[::-1]) + y_grid,
+                              cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+                             # borderValue=add_to_movie)
+            total_shifts = [
+                    (-x, -y) for x, y in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles))]
+            return m_reg - add_to_movie, total_shifts, None, None
+
+        # create automatically upsample parameters if not passed
+        if newoverlaps is None:
+            newoverlaps = overlaps
+        if newstrides is None:
+            newstrides = tuple(
+                np.round(np.divide(strides, upsample_factor_grid)).astype(np.int))
+
+        newshapes = np.add(newstrides, newoverlaps)
+
+        imgs = [it[-1]
+                for it in sliding_window(img, overlaps=newoverlaps, strides=newstrides)]
+
+        xy_grid = [(it[0], it[1]) for it in sliding_window(
+            img, overlaps=newoverlaps, strides=newstrides)]
+
+        start_step = [(it[2], it[3]) for it in sliding_window(
+            img, overlaps=newoverlaps, strides=newstrides)]
+
+        dim_new_grid = tuple(np.add(xy_grid[-1], 1))
+
+        shift_img_x = cv2.resize(
+            shift_img_x, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
+        shift_img_y = cv2.resize(
+            shift_img_y, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
+        diffs_phase_grid_us = cv2.resize(
+            diffs_phase_grid, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
+
+        num_tiles = np.prod(dim_new_grid)
+
+        max_shear = np.percentile(
+            [np.max(np.abs(np.diff(ssshh, axis=xxsss))) for ssshh, xxsss in itertools.product(
+                [shift_img_x, shift_img_y], [0, 1])], 75)
+
+        total_shifts = [
+            (-x, -y) for x, y in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles))]
+        total_diffs_phase = [
+            dfs for dfs in diffs_phase_grid_us.reshape(num_tiles)]
+
+        if gSig_filt is not None:
+            raise Exception(
+                'The use of FFT and filtering options have not been tested. Set opencv=True')
+
+        imgs = [apply_shifts_dft(im, (
+            sh[0], sh[1]), dffphs, is_freq=False, border_nan=border_nan) for im, sh, dffphs in zip(
+            imgs, total_shifts, total_diffs_phase)]
+
+        normalizer = np.zeros_like(img) * np.nan
+        new_img = np.zeros_like(img) * np.nan
+
+        weight_matrix = create_weight_matrix_for_blending(
+            img, newoverlaps, newstrides)
+
+        if max_shear < 0.5:
+            for (x, y), (_, _), im, (_, _), weight_mat in zip(start_step, xy_grid, imgs, total_shifts, weight_matrix):
+
+                prev_val_1 = normalizer[x:x + newshapes[0], y:y + newshapes[1]]
+
+                normalizer[x:x + newshapes[0], y:y + newshapes[1]] = np.nansum(
+                    np.dstack([~np.isnan(im) * 1 * weight_mat, prev_val_1]), -1)
+                prev_val = new_img[x:x + newshapes[0], y:y + newshapes[1]]
+                new_img[x:x + newshapes[0], y:y + newshapes[1]
+                        ] = np.nansum(np.dstack([im * weight_mat, prev_val]), -1)
+
+            new_img = old_div(new_img, normalizer)
+
+        else:  # in case the difference in shift between neighboring patches is larger than 0.5 pixels we do not interpolate in the overlaping area
+            half_overlap_x = np.int(newoverlaps[0] / 2)
+            half_overlap_y = np.int(newoverlaps[1] / 2)
+            for (x, y), (idx_0, idx_1), im, (_, _), weight_mat in zip(start_step, xy_grid, imgs, total_shifts, weight_matrix):
+
+                if idx_0 == 0:
+                    x_start = x
+                else:
+                    x_start = x + half_overlap_x
+
+                if idx_1 == 0:
+                    y_start = y
+                else:
+                    y_start = y + half_overlap_y
+
+                x_end = x + newshapes[0]
+                y_end = y + newshapes[1]
+                new_img[x_start:x_end,
+                        y_start:y_end] = im[x_start - x:, y_start - y:]
+
+        # if show_movie:
+        #     img = apply_shifts_dft(
+        #         sfr_freq, (-rigid_shts[0], -rigid_shts[1]), diffphase, border_nan=border_nan)
+        #     img_show = np.vstack([new_img, img])
+        #
+        #     img_show = cv2.resize(img_show, None, fx=1, fy=1)
+        #
+        #     cv2.imshow('frame', old_div(img_show, np.percentile(template, 99)))
+        #     cv2.waitKey(int(1. / 500 * 1000))
+        #
+        # else:
+        #     try:
+        #         cv2.destroyAllWindows()
+        #     except:
+        #         pass
+
+        return new_img - add_to_movie, total_shifts, start_step, xy_grid
 
 
 def apply_shifts_dft(src_freq, shifts, diffphase, is_freq=True, border_nan=True):
@@ -2340,93 +2649,6 @@ def bin_median_3d(self, window=10):
         return np.nanmedian(np.nanmean(np.reshape(self[:num_frames], (window, num_windows, d1, d2, d3)), axis=0),
                             axis=0)
 
-def motion_correction_piecewise(fname, splits, strides, overlaps, add_to_movie=0, template=None,
-                                max_shifts=(12, 12), max_deviation_rigid=3, newoverlaps=None, newstrides=None,
-                                upsample_factor_grid=4, order='F', dview=None, save_movie=True,
-                                base_name=None, subidx = None, num_splits=None, shifts_opencv=False, nonneg_movie=False, gSig_filt=None,
-                                use_cuda=False, border_nan=True, var_name_hdf5='mov', is3D=False,
-                                indices=(slice(None), slice(None))):
-    """
-
-    """
-    # todo todocument
-    if isinstance(fname, tuple):
-        name, extension = os.path.splitext(fname[0])[:2]
-    else:
-        name, extension = os.path.splitext(fname)[:2]
-    extension = extension.lower()
-    is_fiji = False
-
-    dims, T = get_file_size(fname, var_name_hdf5=var_name_hdf5)
-    z = np.zeros(dims)
-    dims = z[indices].shape
-    logging.debug('Number of Splits: {}'.format(splits))
-    if isinstance(splits, int):
-        if subidx is None:
-            rng = range(T)
-        else:
-            rng = range(T)[subidx]
-
-        idxs = np.array_split(list(rng), splits)
-
-    else:
-        idxs = splits
-        save_movie = False
-    if template is None:
-        raise Exception('Not implemented')
-
-    shape_mov = (np.prod(dims), T)
-#    if is3D:
-#        shape_mov = (d1 * d2 * d3, T)
-#    else:
-#        shape_mov = (d1 * d2, T)
-    if num_splits is not None:
-        idxs = np.array(idxs)[np.random.randint(0, len(idxs), num_splits)]
-        save_movie = False
-        #logging.warning('**** MOVIE NOT SAVED BECAUSE num_splits is not None ****')
-
-    if save_movie:
-        if base_name is None:
-            base_name = os.path.split(fname)[1][:-4]
-        fname_tot:Optional[str] = memmap_frames_filename(base_name, dims, T, order)
-        if isinstance(fname, tuple):
-            fname_tot = os.path.join(os.path.split(fname[0])[0], fname_tot)
-        else:
-            fname_tot = os.path.join(os.path.split(fname)[0], fname_tot)
-
-        np.memmap(fname_tot, mode='w+', dtype=np.float32,
-                  shape=prepare_shape(shape_mov), order=order)
-        logging.info('Saving file as {}'.format(fname_tot))
-    else:
-        fname_tot = None
-
-    pars = []
-    for idx in idxs:
-        logging.debug('Processing: frames: {}'.format(idx))
-        pars.append([fname, fname_tot, idx, shape_mov, template, strides, overlaps, max_shifts, np.array(
-            add_to_movie, dtype=np.float32), max_deviation_rigid, upsample_factor_grid,
-            newoverlaps, newstrides, shifts_opencv, nonneg_movie, gSig_filt, is_fiji,
-            use_cuda, border_nan, var_name_hdf5, is3D, indices])
-
-    if dview is not None:
-        logging.info('** Starting parallel motion correction **')
-        if HAS_CUDA and use_cuda:
-            # res = dview.map(tile_and_correct_wrapper,pars)
-            # dview.map(close_cuda_process, range(len(pars)))
-            print("**to_julia** not implemented the moment")
-            sys.exit(2)
-            # **to_julia** not interesting for us for now
-        elif 'multiprocessing' in str(type(dview)):
-            res = dview.map_async(tile_and_correct_wrapper, pars).get(4294967)
-        else:
-            res = dview.map_sync(tile_and_correct_wrapper, pars)
-        logging.info('** Finished parallel motion correction **')
-    else:
-        res = list(map(tile_and_correct_wrapper, pars))
-
-    return fname_tot, res
-
-
 def get_file_size(file_name, var_name_hdf5='mov'):
     """ Computes the dimensions of a file or a list of files without loading
     it/them in memory. An exception is thrown if the files have FOVs with
@@ -2977,251 +3199,6 @@ def tile_and_correct_3d(img:np.ndarray, template:np.ndarray, strides:Tuple, over
         return new_img - add_to_movie, total_shifts, start_step, xyz_grid
 #%%
 
-
-def tile_and_correct(img, template, strides, overlaps, max_shifts, newoverlaps=None, newstrides=None, upsample_factor_grid=4,
-                     upsample_factor_fft=10, show_movie=False, max_deviation_rigid=2, add_to_movie=0, shifts_opencv=False, gSig_filt=None,
-                     use_cuda=False, border_nan=True):
-    """ perform piecewise rigid motion correction iteration, by
-        1) dividing the FOV in patches
-        2) motion correcting each patch separately
-        3) upsampling the motion correction vector field
-        4) stiching back together the corrected subpatches
-
-    Args:
-        img: ndaarray 2D
-            image to correct
-
-        template: ndarray
-            reference image
-
-        strides: tuple
-            strides of the patches in which the FOV is subdivided
-
-        overlaps: tuple
-            amount of pixel overlaping between patches along each dimension
-
-        max_shifts: tuple
-            max shifts in x and y
-
-        newstrides:tuple
-            strides between patches along each dimension when upsampling the vector fields
-
-        newoverlaps:tuple
-            amount of pixel overlaping between patches along each dimension when upsampling the vector fields
-
-        upsample_factor_grid: int
-            if newshapes or newstrides are not specified this is inferred upsampling by a constant factor the cvector field
-
-        upsample_factor_fft: int
-            resolution of fractional shifts
-
-        show_movie: boolean whether to visualize the original and corrected frame during motion correction
-
-        max_deviation_rigid: int
-            maximum deviation in shifts of each patch from the rigid shift (should not be large)
-
-        add_to_movie: if movie is too negative the correction might have some issues. In this case it is good to add values so that it is non negative most of the times
-
-        filt_sig_size: tuple
-            standard deviation and size of gaussian filter to center filter data in case of one photon imaging data
-
-        use_cuda : bool, optional
-            Use skcuda.fft (if available). Default: False
-
-        border_nan : bool or string, optional
-            specifies how to deal with borders. (True, False, 'copy', 'min')
-
-    Returns:
-        (new_img, total_shifts, start_step, xy_grid)
-            new_img: ndarray, corrected image
-
-
-    """
-
-    img = img.astype(np.float64).copy()
-    template = template.astype(np.float64).copy()
-
-    if gSig_filt is not None:
-
-        img_orig = img.copy()
-        img = high_pass_filter_space(img_orig, gSig_filt)
-
-    img = img + add_to_movie
-    template = template + add_to_movie
-
-    # compute rigid shifts
-    rigid_shts, sfr_freq, diffphase = register_translation(
-        img, template, upsample_factor=upsample_factor_fft, max_shifts=max_shifts, use_cuda=use_cuda)
-
-    if max_deviation_rigid == 0:
-
-        if shifts_opencv:
-            if gSig_filt is not None:
-                img = img_orig
-
-            new_img = apply_shift_iteration(
-                img, (-rigid_shts[0], -rigid_shts[1]), border_nan=border_nan)
-
-        else:
-
-            if gSig_filt is not None:
-                raise Exception(
-                    'The use of FFT and filtering options have not been tested. Set opencv=True')
-
-            new_img = apply_shifts_dft(
-                sfr_freq, (-rigid_shts[0], -rigid_shts[1]), diffphase, border_nan=border_nan)
-
-        return new_img - add_to_movie, (-rigid_shts[0], -rigid_shts[1]), None, None
-    else:
-        # extract patches
-        templates = [
-            it[-1] for it in sliding_window(template, overlaps=overlaps, strides=strides)]
-        xy_grid = [(it[0], it[1]) for it in sliding_window(
-            template, overlaps=overlaps, strides=strides)]
-        num_tiles = np.prod(np.add(xy_grid[-1], 1))
-        imgs = [it[-1]
-                for it in sliding_window(img, overlaps=overlaps, strides=strides)]
-        dim_grid = tuple(np.add(xy_grid[-1], 1))
-
-        if max_deviation_rigid is not None:
-
-            lb_shifts = np.ceil(np.subtract(
-                rigid_shts, max_deviation_rigid)).astype(int)
-            ub_shifts = np.floor(
-                np.add(rigid_shts, max_deviation_rigid)).astype(int)
-
-        else:
-
-            lb_shifts = None
-            ub_shifts = None
-
-        # extract shifts for each patch
-        shfts_et_all = [register_translation(
-            a, b, c, shifts_lb=lb_shifts, shifts_ub=ub_shifts, max_shifts=max_shifts, use_cuda=use_cuda) for a, b, c in zip(
-            imgs, templates, [upsample_factor_fft] * num_tiles)]
-        shfts = [sshh[0] for sshh in shfts_et_all]
-        diffs_phase = [sshh[2] for sshh in shfts_et_all]
-        # create a vector field
-        shift_img_x = np.reshape(np.array(shfts)[:, 0], dim_grid)
-        shift_img_y = np.reshape(np.array(shfts)[:, 1], dim_grid)
-        diffs_phase_grid = np.reshape(np.array(diffs_phase), dim_grid)
-
-        if shifts_opencv:
-            if gSig_filt is not None:
-                img = img_orig
-
-            dims = img.shape
-            x_grid, y_grid = np.meshgrid(np.arange(0., dims[1]).astype(
-                np.float32), np.arange(0., dims[0]).astype(np.float32))
-            m_reg = cv2.remap(img, cv2.resize(shift_img_y.astype(np.float32), dims[::-1]) + x_grid,
-                              cv2.resize(shift_img_x.astype(np.float32), dims[::-1]) + y_grid,
-                              cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-                             # borderValue=add_to_movie)
-            total_shifts = [
-                    (-x, -y) for x, y in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles))]
-            return m_reg - add_to_movie, total_shifts, None, None
-
-        # create automatically upsample parameters if not passed
-        if newoverlaps is None:
-            newoverlaps = overlaps
-        if newstrides is None:
-            newstrides = tuple(
-                np.round(np.divide(strides, upsample_factor_grid)).astype(np.int))
-
-        newshapes = np.add(newstrides, newoverlaps)
-
-        imgs = [it[-1]
-                for it in sliding_window(img, overlaps=newoverlaps, strides=newstrides)]
-
-        xy_grid = [(it[0], it[1]) for it in sliding_window(
-            img, overlaps=newoverlaps, strides=newstrides)]
-
-        start_step = [(it[2], it[3]) for it in sliding_window(
-            img, overlaps=newoverlaps, strides=newstrides)]
-
-        dim_new_grid = tuple(np.add(xy_grid[-1], 1))
-
-        shift_img_x = cv2.resize(
-            shift_img_x, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
-        shift_img_y = cv2.resize(
-            shift_img_y, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
-        diffs_phase_grid_us = cv2.resize(
-            diffs_phase_grid, dim_new_grid[::-1], interpolation=cv2.INTER_CUBIC)
-
-        num_tiles = np.prod(dim_new_grid)
-
-        max_shear = np.percentile(
-            [np.max(np.abs(np.diff(ssshh, axis=xxsss))) for ssshh, xxsss in itertools.product(
-                [shift_img_x, shift_img_y], [0, 1])], 75)
-
-        total_shifts = [
-            (-x, -y) for x, y in zip(shift_img_x.reshape(num_tiles), shift_img_y.reshape(num_tiles))]
-        total_diffs_phase = [
-            dfs for dfs in diffs_phase_grid_us.reshape(num_tiles)]
-
-        if gSig_filt is not None:
-            raise Exception(
-                'The use of FFT and filtering options have not been tested. Set opencv=True')
-
-        imgs = [apply_shifts_dft(im, (
-            sh[0], sh[1]), dffphs, is_freq=False, border_nan=border_nan) for im, sh, dffphs in zip(
-            imgs, total_shifts, total_diffs_phase)]
-
-        normalizer = np.zeros_like(img) * np.nan
-        new_img = np.zeros_like(img) * np.nan
-
-        weight_matrix = create_weight_matrix_for_blending(
-            img, newoverlaps, newstrides)
-
-        if max_shear < 0.5:
-            for (x, y), (_, _), im, (_, _), weight_mat in zip(start_step, xy_grid, imgs, total_shifts, weight_matrix):
-
-                prev_val_1 = normalizer[x:x + newshapes[0], y:y + newshapes[1]]
-
-                normalizer[x:x + newshapes[0], y:y + newshapes[1]] = np.nansum(
-                    np.dstack([~np.isnan(im) * 1 * weight_mat, prev_val_1]), -1)
-                prev_val = new_img[x:x + newshapes[0], y:y + newshapes[1]]
-                new_img[x:x + newshapes[0], y:y + newshapes[1]
-                        ] = np.nansum(np.dstack([im * weight_mat, prev_val]), -1)
-
-            new_img = old_div(new_img, normalizer)
-
-        else:  # in case the difference in shift between neighboring patches is larger than 0.5 pixels we do not interpolate in the overlaping area
-            half_overlap_x = np.int(newoverlaps[0] / 2)
-            half_overlap_y = np.int(newoverlaps[1] / 2)
-            for (x, y), (idx_0, idx_1), im, (_, _), weight_mat in zip(start_step, xy_grid, imgs, total_shifts, weight_matrix):
-
-                if idx_0 == 0:
-                    x_start = x
-                else:
-                    x_start = x + half_overlap_x
-
-                if idx_1 == 0:
-                    y_start = y
-                else:
-                    y_start = y + half_overlap_y
-
-                x_end = x + newshapes[0]
-                y_end = y + newshapes[1]
-                new_img[x_start:x_end,
-                        y_start:y_end] = im[x_start - x:, y_start - y:]
-
-        if show_movie:
-            img = apply_shifts_dft(
-                sfr_freq, (-rigid_shts[0], -rigid_shts[1]), diffphase, border_nan=border_nan)
-            img_show = np.vstack([new_img, img])
-
-            img_show = cv2.resize(img_show, None, fx=1, fy=1)
-
-            cv2.imshow('frame', old_div(img_show, np.percentile(template, 99)))
-            cv2.waitKey(int(1. / 500 * 1000))
-
-        else:
-            try:
-                cv2.destroyAllWindows()
-            except:
-                pass
-        return new_img - add_to_movie, total_shifts, start_step, xy_grid
 
 def register_translation_3d(src_image, target_image, upsample_factor = 1,
                             space = "real", shifts_lb = None, shifts_ub = None,
