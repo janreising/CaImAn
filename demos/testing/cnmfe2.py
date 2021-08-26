@@ -128,8 +128,21 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
         # save dFF
         rec = cm.movie(rec)
 
+        #TODO delete
+        try:
+            import pickle
+            l = loc.replace("/", "-")
+            with open(f"{path}-{indices.start}_{indices.stop}-{l}.p", "wb") as pfile:
+                pickle.dump(rec, pfile)
+        except Exception as err:
+            print(err)
+            traceback.print_exc()
+            print("Pickle is not working :(")
+        #TODO <---
+
         print("Calculating dFF")
-        mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
+        # mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
+        mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='only_baseline')
         if save_tiff:
             tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
 
@@ -146,7 +159,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
             if indices is None:
                 data[:, :, :] = mov_dff1
             else:
-                data[indices.start:indices.stop, :, :] = mov_dff1
+                data[indices.start:indices.stop, :, :] = mov_dff1[:]
 
     except Exception as err:
         print(err)

@@ -1,3 +1,4 @@
+import dff
 import cnmfe2 as cnmfe
 from motion_correction import CMotionCorrect
 from calpack import Converter
@@ -124,8 +125,19 @@ if __name__ == "__main__":
             t1 = time.time() - t0
             print("*MASTER* CNMFE finished in {:.2f} min".format(t1/60))
 
-        # check if dFF exists
-        # TODO implement
+        #####
+        # dFF
+        keys = get_keys(input_)
+        missing_dFF = [key for key in keys if
+                          (key.startswith("cnmfe/") and key.replace("cnmfe/", "dff/") not in keys)]
+
+        if len(missing_dFF) > 0:
+            t0 = time.time()
+            for loc in missing_dFF:
+                dff.calculate_dFF(input_, loc)
+
+            t1 = time.time() - t0
+            print("*MASTER* dFF finished in {:.2f} min".format(t1/60))
 
     except Exception as err:
         print(err)
