@@ -3,8 +3,10 @@ import numpy as np
 import sys, os, getopt, time
 import caiman as cm
 
-def calculate_dFF(path, loc, loc_base="dff/",
+def calculate_dFF(path, loc,
                   method = "only_baseline", secsWindow = 5, quantilMin = 8):
+
+    print(f"Calculating dFF for loc:{loc}")
 
     with h5.File(path, "r") as file:
         data = file[f"{loc}"]
