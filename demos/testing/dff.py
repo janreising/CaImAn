@@ -2,6 +2,7 @@ import h5py as h5
 import numpy as np
 import sys, os, getopt, time
 import caiman as cm
+from tqdm import tqdm
 
 def calculate_dFF(path, loc,
                   method = "only_baseline", secsWindow = 5, quantilMin = 8):
@@ -13,7 +14,7 @@ def calculate_dFF(path, loc,
         Z, X, Y = data.shape
         cz, cx, cy = data.chunks
 
-    for x0  in range(0, X, cx):
+    for x0  in tqdm(range(0, X, cx)):
         for y0 in range(0, Y, cy):
 
             x1 = min(x0+cx, X)
@@ -27,7 +28,7 @@ def calculate_dFF(path, loc,
 
             with h5.File(path, "a") as file:
                 new_loc = loc.replace("cnmfe", "dff")
-                if "dff/ast" not in file:
+                if new_loc not in file:
                     data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="i2", chunks=(100, 100, 100),
                                         compression="gzip", shuffle=True)
                 else:
