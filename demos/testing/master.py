@@ -134,7 +134,8 @@ if __name__ == "__main__":
         if len(missing_dFF) > 0:
             t0 = time.time()
             for loc in missing_dFF:
-                dff.calculate_dFF(input_, loc)
+                #method='only_baseline','delta_f_over_f','delta_f_over_sqrt_f'
+                dff.calculate_dFF(input_, loc, method="delta_f_over_sqrt_f")
 
             t1 = time.time() - t0
             print("*MASTER* dFF finished in {:.2f} min".format(t1/60))

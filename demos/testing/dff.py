@@ -5,7 +5,7 @@ import caiman as cm
 from tqdm import tqdm
 
 def calculate_dFF(path, loc,
-                  method = "only_baseline", secsWindow = 5, quantilMin = 8):
+                  method="only_baseline", secsWindow = 5, quantilMin = 8):
 
     print(f"Calculating dFF for loc:{loc}")
 
@@ -29,7 +29,7 @@ def calculate_dFF(path, loc,
             with h5.File(path, "a") as file:
                 new_loc = loc.replace("cnmfe", "dff")
                 if new_loc not in file:
-                    data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="i2", chunks=(100, 100, 100),
+                    data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="float32", chunks=(100, 100, 100),
                                         compression="gzip", shuffle=True)
                 else:
                     data = file[f"{new_loc}"]

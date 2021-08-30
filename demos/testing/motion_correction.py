@@ -10,7 +10,7 @@ import getopt
 from skimage.transform import resize
 import time
 
-from pbullet import Comm
+# from pbullet import Comm
 
 import cv2
 try:
@@ -57,7 +57,7 @@ class CMotionCorrect():
         self.dimensions = []
         self.mmaps = []
 
-        self.comm = Comm()
+        # self.comm = Comm()
 
         self.dview = dview
 
@@ -223,7 +223,7 @@ class CMotionCorrect():
         # Finialization
         t1 = (time.time() - t0) / 60
         print("Motion correction finished in {:.2f}".format(t1))
-        self.comm.push_text("MC done!", f"Motion correctio done for {self.path}. It took {t1:.2f}min")
+        # self.comm.push_text("MC done!", f"Motion correctio done for {self.path}. It took {t1:.2f}min")
 
     @staticmethod
     def deconstruct_path(path):
