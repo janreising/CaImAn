@@ -125,28 +125,27 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
             tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
             print("Sample saved!")
 
-        # save dFF
-        rec = cm.movie(rec)
-
-        print("Calculating dFF")
-        mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='delta_f_over_sqrt_f')
-        if save_tiff:
-            tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
-
-        print("Saving dFF")
-        with h5.File(path, "a") as file:
-
-            new_loc = loc.replace("mc", "dff")
-            if new_loc not in file:
-                data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape,
-                                           compression="gzip", chunks=(100, 100, 100), shuffle=True)
-            else:
-                data = file[new_loc]
-
-            if indices is None:
-                data[:, :, :] = mov_dff1
-            else:
-                data[indices.start:indices.stop, :, :] = mov_dff1
+        # # save dFF
+        # rec = cm.movie(rec)
+        #
+        # mov_dff1, _ = (rec + abs(np.min(rec)) + 1).computeDFF(secsWindow=5, method='only_baseline')
+        # if save_tiff:
+        #     tf.imsave(path+"_"+loc.replace("/", "-")+".dFF.tiff", mov_dff1)
+        #
+        # print("Saving dFF")
+        # with h5.File(path, "a") as file:
+        #
+        #     new_loc = loc.replace("mc", "dff")
+        #     if new_loc not in file:
+        #         data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape,
+        #                                    compression="gzip", chunks=(100, 100, 100), shuffle=True)
+        #     else:
+        #         data = file[new_loc]
+        #
+        #     if indices is None:
+        #         data[:, :, :] = mov_dff1
+        #     else:
+        #         data[indices.start:indices.stop, :, :] = mov_dff1[:]
 
     except Exception as err:
         print(err)
