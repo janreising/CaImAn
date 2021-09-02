@@ -199,7 +199,7 @@ class CMotionCorrect():
             # delete temp files
             if self.delete_temp_files:
 
-                if len(self.files) > 1:
+                if len(self.files) > 0:
                     for file in self.files:
                         print(f"Removing {file}")
                         try:
