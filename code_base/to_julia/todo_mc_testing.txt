@@ -1,0 +1,19 @@
+class MotionCorrection -> (f) run_motion_correction -->
+
+    class MotionCorrect -> (f) motion_correct
+                        --> (f) motion_correct_pwrigid
+
+                        ---> (f) motion_correct_rigid (no template)
+                            ----> (f) motion_correct_batch_rigid
+                                .> (f) high_pass_filter_space
+                                .> (F) motion_correct [get template]
+                                .> (f) motion_correction_piecewise
+
+                        || (depending on template exists or not)
+
+                        ---> (f) motion_correct_batch_pwrigid (template)
+                            ----> (f) motion_correction_piecewise [split in Z]
+                                -----> (f) tile_and_correct_wrapper [iterate over images]
+                                    ------> (f) tile_and_correct [?]
+                                        .> (F) high_pass_filter_space
+                                        .> (F) register_translation [calculate maximum cross correlation between img and template]

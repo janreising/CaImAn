@@ -183,6 +183,7 @@ class MotionCorrect(object):
 
         assert self.gSig_filt is not None, "**to_julia** removed"
 
+        # get minimum of first 400 frames!?
         self.min_mov = np.array([high_pass_filter_space(m_, self.gSig_filt)
             for m_ in load(self.fname[0], var_name_hdf5=self.var_name_hdf5,
                               subindices=slice(400))]).min()  #TODO why is the 400 hardcoded here?
@@ -194,6 +195,7 @@ class MotionCorrect(object):
             b0 = np.ceil(np.maximum(np.max(np.abs(self.x_shifts_els)),
                                 np.max(np.abs(self.y_shifts_els))))
         else:
+            # -> we go here
             self.motion_correct_rigid(template=template, save_movie=save_movie)
             b0 = np.ceil(np.max(np.abs(self.shifts_rig)))
 
@@ -247,6 +249,7 @@ class MotionCorrect(object):
                 var_name_hdf5=self.var_name_hdf5,
                 is3D=self.is3D,
                 indices=self.indices)
+
             if template is None:
                 self.total_template_rig = _total_template_rig
 
@@ -1016,12 +1019,11 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
     #                     "with size smaller than 4GB (if it is a .tif file)")
 
 
-    m = m[:, indices[0], indices[1]]
+    m = m[:, indices[0], indices[1]] # TODO somehow it only loads 48 frames instead of the full T length. Why? How?
 
     if template is None:
         if gSig_filt is not None:
-            m = movie(
-                np.array([high_pass_filter_space(m_, gSig_filt) for m_ in m]))
+            m = movie(np.array([high_pass_filter_space(m_, gSig_filt) for m_ in m]))
 
         if not m.flags['WRITEABLE']:
             m = m.copy()
@@ -1072,11 +1074,6 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
         shift_info, idxs, tmpl = rr
         templates.append(tmpl)
         shifts += [sh[0] for sh in shift_info[:len(idxs)]]
- #       shifts += [[sh[0][0], sh[0][1]] for sh in shift_info[:len(idxs)]]
- #       if is3D:
- #           shifts += [[sh[0][0], sh[0][1], sh[0][2]] for sh in shift_info[:len(idxs)]]
- #       else:
- #           shifts += [[sh[0][0], sh[0][1]] for sh in shift_info[:len(idxs)]]
 
     return fname_tot_rig, total_template, templates, shifts
 
