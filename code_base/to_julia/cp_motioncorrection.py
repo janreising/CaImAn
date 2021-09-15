@@ -1,29 +1,29 @@
-import cv2
-import h5py
+# import cv2
+# import h5py
 import logging
 import numpy as np
 import os
-import pylab as pl
-import scipy.ndimage
-import scipy
-from scipy.io import loadmat
+# import pylab as pl
+# import scipy.ndimage
+# import scipy
+# from scipy.io import loadmat
 
-import sys
-import tifffile
-from tqdm import tqdm
+# import sys
+# import tifffile
+# from tqdm import tqdm
 from typing import Any, Dict, List, Tuple, Union, Optional
-import itertools
-from itertools import chain
+# import itertools
+# from itertools import chain
 
-import ipyparallel as parallel
+# import ipyparallel as parallel
 
-from skimage.transform import warp as warp_sk
-from skimage.transform import resize as resize_sk
+# from skimage.transform import warp as warp_sk
+# from skimage.transform import resize as resize_sk
 
-from cv2 import dft as fftn
-from cv2 import idft as ifftn
+# from cv2 import dft as fftn
+# from cv2 import idft as ifftn
 
-from numpy.fft import ifftshift
+# from numpy.fft import ifftshift
 
 import pathlib
 
@@ -190,7 +190,6 @@ class MotionCorrect(object):
 
         if self.pw_rigid:
             self.motion_correct_pwrigid(template=template, save_movie=save_movie)
-            assert self.is3D is None, "**to_julia** removed"
 
             b0 = np.ceil(np.maximum(np.max(np.abs(self.x_shifts_els)),
                                 np.max(np.abs(self.y_shifts_els))))
@@ -223,8 +222,7 @@ class MotionCorrect(object):
 
             self.shifts_rig: shifts in x and y (and z if 3D) per frame
         """
-        logging.debug('Entering Rigid Motion Correction')
-        logging.debug(-self.min_mov)  # XXX why the minus?
+
         self.total_template_rig = template
         self.templates_rig:List = []
         self.fname_tot_rig:List = []
@@ -555,6 +553,9 @@ def high_pass_filter_space(img_orig, gSig_filt=None, freq=None, order=None):
         img: 2-d array or 3-d movie
             image/movie after filtering
     """
+
+    import cv2
+
     if freq is None or order is None:  # Gaussian
         ksize = tuple([(3 * i) // 2 * 2 + 1 for i in gSig_filt])
         ker = cv2.getGaussianKernel(ksize[0], gSig_filt[0])
@@ -646,6 +647,9 @@ def load(file_name: Union[str, List[str]],
 
         Exception 'File not found!'
     """
+
+    import h5py
+
     # case we load movie from file
     if max(top, bottom, left, right) > 0 and isinstance(file_name, str):
         file_name = [file_name]        # type: ignore # mypy doesn't like that this changes type
@@ -1007,19 +1011,13 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
     ## get dimensions and load file to memory
     dims, T = get_file_size(fname, var_name_hdf5=var_name_hdf5)
     Ts = np.arange(T)[subidx].shape[0]
-    step =  Ts // 50
+
+    # basically loads every 50th image and then calculates the template from that
+    step = Ts // 50
     corrected_slicer = slice(subidx.start, subidx.stop, step + 1)
     m = load(fname, var_name_hdf5=var_name_hdf5, subindices=corrected_slicer)
 
-    # if len(m.shape) < 3:
-    #     m = load(fname, var_name_hdf5=var_name_hdf5)
-    #     m = m[corrected_slicer]
-    #     logging.warning("Your original file was saved as a single page " +
-    #                     "file. Consider saving it in multiple smaller files" +
-    #                     "with size smaller than 4GB (if it is a .tif file)")
-
-
-    m = m[:, indices[0], indices[1]] # TODO somehow it only loads 48 frames instead of the full T length. Why? How?
+    m = m[:, indices[0], indices[1]]  # TODO doesnt really makes sense here, right? the loaded m is already the full length of T?
 
     if template is None:
         if gSig_filt is not None:
@@ -1028,7 +1026,7 @@ def motion_correct_batch_rigid(fname, max_shifts, dview=None, splits=56, num_spl
         if not m.flags['WRITEABLE']:
             m = m.copy()
 
-        template = bin_median(m.motion_correct(max_shifts[1], max_shifts[0], template=None)[0])
+        template = movie.bin_median(m.motion_correct(max_shifts[1], max_shifts[0], template=None)[0])
 
     new_templ = template
     if add_to_movie is None:
@@ -2014,8 +2012,13 @@ def tile_and_correct_wrapper(params):
     new_temp[np.isnan(new_temp)] = np.nanmin(new_temp)
     return shift_info, idxs, new_temp
 
-def apply_shift_iteration(img, shift, border_nan:bool=False, border_type=cv2.BORDER_REFLECT):
+def apply_shift_iteration(img, shift, border_nan:bool=False, border_type=None):
     # todo todocument
+
+    import cv2
+
+    if border_type is None:
+        border_type = cv2.BORDER_REFLECT
 
     sh_x_n, sh_y_n = shift
     w_i, h_i = img.shape
@@ -2927,27 +2930,6 @@ def bin_median(self, window: int = 10) -> np.ndarray:
     num_frames = num_windows * window
     return np.nanmedian(np.nanmean(np.reshape(self[:num_frames], (window, num_windows, d1, d2)), axis=0), axis=0)
 
-def bin_median_3d(self, window=10):
-        """ compute median of 4D array in along axis o by binning values
-
-        Args:
-            mat: ndarray
-                input 4D matrix, (T, h, w, z)
-
-            window: int
-                number of frames in a bin
-
-        Returns:
-            img:
-                median image
-
-        """
-        T, d1, d2, d3 = np.shape(self)
-        num_windows = np.int(old_div(T, window))
-        num_frames = num_windows * window
-        return np.nanmedian(np.nanmean(np.reshape(self[:num_frames], (window, num_windows, d1, d2, d3)), axis=0),
-                            axis=0)
-
 def get_file_size(file_name, var_name_hdf5='mov'):
     """ Computes the dimensions of a file or a list of files without loading
     it/them in memory. An exception is thrown if the files have FOVs with
@@ -2966,6 +2948,9 @@ def get_file_size(file_name, var_name_hdf5='mov'):
             T: int or tuple of int
                 number of timesteps in each file
     """
+
+    import h5py
+
     if isinstance(file_name, pathlib.Path):
         # We want to support these as input, but str has a broader set of operations that we'd like to use, so let's just convert.
 	# (specifically, filePath types don't support subscripting)
@@ -3152,6 +3137,278 @@ class movie(timeseries):
             return super().__new__(cls, input_arr, **kwargs)
         else:
             raise Exception('Input must be an ndarray, use load instead!')
+
+    def motion_correct(self,
+                       max_shift_w=5,
+                       max_shift_h=5,
+                       num_frames_template=None,
+                       template=None,
+                       method: str = 'opencv',
+                       remove_blanks: bool = False,
+                       interpolation: str = 'cubic') -> Tuple[Any, Tuple, Any, Any]:
+        """
+        Extract shifts and motion corrected movie automatically,
+        for more control consider the functions extract_shifts and apply_shifts
+        Disclaimer, it might change the object itself.
+        Args:
+            max_shift_w,max_shift_h: maximum pixel shifts allowed when correcting
+                                     in the width and height direction
+            template: if a good template for frame by frame correlation exists
+                      it can be passed. If None it is automatically computed
+            method: depends on what is installed 'opencv' or 'skimage'. 'skimage'
+                    is an order of magnitude slower
+            num_frames_template: if only a subset of the movies needs to be loaded
+                                 for efficiency/speed reasons
+        Returns:
+            self: motion corected movie, it might change the object itself
+            shifts : tuple, contains x & y shifts and correlation with template
+            xcorrs: cross correlation of the movies with the template
+            template: the computed template
+        """
+
+        from past.utils import old_div
+
+        if template is None:  # if template is not provided it is created
+            if num_frames_template is None:
+                num_frames_template = old_div(10e7, (self.shape[1] * self.shape[2]))
+
+            frames_to_skip = int(np.maximum(1, old_div(self.shape[0], num_frames_template)))
+
+            # sometimes it is convenient to only consider a subset of the
+            # movie when computing the median
+            submov = self[::frames_to_skip, :].copy()
+            templ = submov.bin_median()  # create template with portion of movie
+            shifts, xcorrs = submov.extract_shifts(max_shift_w=max_shift_w,
+                                                   max_shift_h=max_shift_h,
+                                                   template=templ,
+                                                   method=method)
+            submov.apply_shifts(shifts, interpolation=interpolation, method=method)
+            template = submov.bin_median()
+            del submov
+            m = self.copy()
+            shifts, xcorrs = m.extract_shifts(max_shift_w=max_shift_w,
+                                              max_shift_h=max_shift_h,
+                                              template=template,
+                                              method=method)
+            m = m.apply_shifts(shifts, interpolation=interpolation, method=method)
+            template = (m.bin_median())
+            del m
+        else:
+            template = template - np.percentile(template, 8)
+
+        # now use the good template to correct
+        shifts, xcorrs = self.extract_shifts(max_shift_w=max_shift_w,
+                                             max_shift_h=max_shift_h,
+                                             template=template,
+                                             method=method)
+        self = self.apply_shifts(shifts, interpolation=interpolation, method=method)
+
+        if remove_blanks:
+            max_h, max_w = np.max(shifts, axis=0)
+            min_h, min_w = np.min(shifts, axis=0)
+            self.crop(crop_top=max_h,
+                      crop_bottom=-min_h + 1,
+                      crop_left=max_w,
+                      crop_right=-min_w,
+                      crop_begin=0,
+                      crop_end=0)
+
+        return self, shifts, xcorrs, template
+
+    def bin_median(self, window: int = 10) -> np.ndarray:
+        """ compute median of 3D array in along axis o by binning values
+        Args:
+            mat: ndarray
+                input 3D matrix, time along first dimension
+            window: int
+                number of frames in a bin
+        Returns:
+            img:
+                median image
+        """
+
+        from past.utils import old_div
+
+        T, d1, d2 = np.shape(self)
+        num_windows = np.int(old_div(T, window))
+        num_frames = num_windows * window
+        ret = np.nanmedian(np.nanmean(np.reshape(self[:num_frames], (window, num_windows, d1, d2)), axis=0), axis=0)
+        return ret
+
+    def extract_shifts(self, max_shift_w: int = 5, max_shift_h: int = 5, template=None,
+                       method: str = 'opencv') -> Tuple[List, List]:
+        """
+        Performs motion correction using the opencv matchtemplate function. At every iteration a template is built by taking the median of all frames and then used to align the other frames.
+        Args:
+            max_shift_w,max_shift_h: maximum pixel shifts allowed when correcting in the width and height direction
+            template: if a good template for frame by frame correlation is available it can be passed. If None it is automatically computed
+            method: depends on what is installed 'opencv' or 'skimage'. 'skimage' is an order of magnitude slower
+        Returns:
+            shifts : tuple, contains shifts in x and y and correlation with template
+            xcorrs: cross correlation of the movies with the template
+        Raises:
+            Exception 'Unknown motion correction method!'
+        """
+
+        import cv2
+
+        min_val = np.percentile(self, 1)
+        if min_val < -0.1:
+            # logging.debug("min_val in extract_shifts: " + str(min_val))
+            # logging.warning('Movie average is negative. Removing 1st percentile.')
+            self = self - min_val
+        else:
+            min_val = 0
+
+        if not isinstance(self[0, 0, 0], np.float32):
+            warnings.warn('Casting the array to float32')
+            self = np.asanyarray(self, dtype=np.float32)
+
+        _, h_i, w_i = self.shape
+
+        ms_w = max_shift_w
+        ms_h = max_shift_h
+
+        if template is None:
+            template = np.median(self, axis=0)
+        else:
+            if np.percentile(template, 8) < -0.1:
+                # logging.warning('Movie average is negative. Removing 1st percentile.')
+                template = template - np.percentile(template, 1)
+
+        template = template[ms_h:h_i - ms_h, ms_w:w_i - ms_w].astype(np.float32)
+
+        # % run algorithm, press q to stop it
+        shifts = []  # store the amount of shift in each frame
+        xcorrs = []
+
+        for i, frame in enumerate(self):
+            if i % 100 == 99:
+                logging.debug(f"Frame {i + 1}")
+            if method == 'opencv':
+                res = cv2.matchTemplate(frame, template, cv2.TM_CCORR_NORMED)
+                top_left = cv2.minMaxLoc(res)[3]
+            elif method == 'skimage':
+                res = match_template(frame, template)
+                top_left = np.unravel_index(np.argmax(res), res.shape)
+                top_left = top_left[::-1]
+            else:
+                raise Exception('Unknown motion correction method!')
+            avg_corr = np.mean(res)
+            sh_y, sh_x = top_left
+
+            if (0 < top_left[1] < 2 * ms_h - 1) & (0 < top_left[0] < 2 * ms_w - 1):
+                # if max is internal, check for subpixel shift using gaussian
+                # peak registration
+                log_xm1_y = np.log(res[sh_x - 1, sh_y])
+                log_xp1_y = np.log(res[sh_x + 1, sh_y])
+                log_x_ym1 = np.log(res[sh_x, sh_y - 1])
+                log_x_yp1 = np.log(res[sh_x, sh_y + 1])
+                four_log_xy = 4 * np.log(res[sh_x, sh_y])
+
+                sh_x_n = -(sh_x - ms_h + old_div((log_xm1_y - log_xp1_y),
+                                                 (2 * log_xm1_y - four_log_xy + 2 * log_xp1_y)))
+                sh_y_n = -(sh_y - ms_w + old_div((log_x_ym1 - log_x_yp1),
+                                                 (2 * log_x_ym1 - four_log_xy + 2 * log_x_yp1)))
+            else:
+                sh_x_n = -(sh_x - ms_h)
+                sh_y_n = -(sh_y - ms_w)
+
+            shifts.append([sh_x_n, sh_y_n])
+            xcorrs.append([avg_corr])
+
+        self = self + min_val
+
+        return (shifts, xcorrs)
+
+    def apply_shifts(self, shifts, interpolation: str = 'linear', method: str = 'opencv', remove_blanks: bool = False):
+        """
+        Apply precomputed shifts to a movie, using subpixels adjustment (cv2.INTER_CUBIC function)
+        Args:
+            shifts: array of tuples representing x and y shifts for each frame
+            interpolation: 'linear', 'cubic', 'nearest' or cvs.INTER_XXX
+            method: (undocumented)
+            remove_blanks: (undocumented)
+        Returns:
+            self
+        Raise:
+            Exception 'Interpolation method not available'
+            Exception 'Method not defined'
+        """
+
+        import cv2
+
+        if not isinstance(self[0, 0, 0], np.float32):
+            warnings.warn('Casting the array to float32')
+            self = np.asanyarray(self, dtype=np.float32)
+
+        if interpolation == 'cubic':
+            if method == 'opencv':
+                interpolation = cv2.INTER_CUBIC
+            else:
+                interpolation = 3
+            logging.debug('cubic interpolation')
+
+        elif interpolation == 'nearest':
+            if method == 'opencv':
+                interpolation = cv2.INTER_NEAREST
+            else:
+                interpolation = 0
+            logging.debug('nearest interpolation')
+
+        elif interpolation == 'linear':
+            if method == 'opencv':
+                interpolation = cv2.INTER_LINEAR
+            else:
+                interpolation = 1
+            logging.debug('linear interpolation')
+        elif interpolation == 'area':
+            if method == 'opencv':
+                interpolation = cv2.INTER_AREA
+            else:
+                raise Exception('Method not defined')
+            logging.debug('area interpolation')
+        elif interpolation == 'lanczos4':
+            if method == 'opencv':
+                interpolation = cv2.INTER_LANCZOS4
+            else:
+                interpolation = 4
+            logging.debug('lanczos/biquartic interpolation')
+        else:
+            raise Exception('Interpolation method not available')
+
+        _, h, w = self.shape
+        for i, frame in enumerate(self):
+            if i % 100 == 99:
+                logging.debug(f"Frame {i + 1}")
+
+            sh_x_n, sh_y_n = shifts[i]
+
+            if method == 'opencv':
+                M = np.float32([[1, 0, sh_y_n], [0, 1, sh_x_n]])
+                min_, max_ = np.min(frame), np.max(frame)
+                self[i] = np.clip(cv2.warpAffine(frame, M, (w, h), flags=interpolation, borderMode=cv2.BORDER_REFLECT),
+                                  min_, max_)
+
+            elif method == 'skimage':
+
+                tform = AffineTransform(translation=(-sh_y_n, -sh_x_n))
+                self[i] = warp(frame, tform, preserve_range=True, order=interpolation)
+
+            else:
+                raise Exception('Unknown shift application method')
+
+        if remove_blanks:
+            max_h, max_w = np.max(shifts, axis=0)
+            min_h, min_w = np.min(shifts, axis=0)
+            self.crop(crop_top=max_h,
+                      crop_bottom=-min_h + 1,
+                      crop_left=max_w,
+                      crop_right=-min_w,
+                      crop_begin=0,
+                      crop_end=0)
+
+        return self
 
 def memmap_frames_filename(basename: str, dims: Tuple, frames: int, order: str = 'F') -> str:
     # Some functions calling this have the first part of *their* dims Tuple be the number of frames.
