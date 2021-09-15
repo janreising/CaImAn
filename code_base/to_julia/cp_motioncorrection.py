@@ -1276,6 +1276,7 @@ def motion_correction_piecewise(fname, splits, strides, overlaps, add_to_movie=0
     pars = []
     for idx in idxs:
         logging.debug('Processing: frames: {}'.format(idx))
+        # TASK list
         pars.append([fname, fname_tot, idx, shape_mov, template, strides, overlaps, max_shifts, np.array(
             add_to_movie, dtype=np.float32), max_deviation_rigid, upsample_factor_grid,
             newoverlaps, newstrides, shifts_opencv, nonneg_movie, gSig_filt, is_fiji,
@@ -1772,10 +1773,11 @@ def register_translation(src_image, target_image, upsample_factor=1,
 
         new_cross_corr[:, max_shifts[1]:-max_shifts[1]] = 0
 
+    ###########################
+    # centering shifts around midpoint
     maxima = np.unravel_index(np.argmax(new_cross_corr),
                               cross_correlation.shape)
-    midpoints = np.array([np.fix(old_div(axis_size, 2))
-                          for axis_size in shape])
+    midpoints = np.array([np.fix(old_div(axis_size, 2)) for axis_size in shape])
 
     shifts = np.array(maxima, dtype=np.float64)
     shifts[shifts > midpoints] -= np.array(shape)[shifts > midpoints]
