@@ -1,3 +1,5 @@
+print("I was loaded o_O")
+
 class TestClass():
 
 	def __init__(self):

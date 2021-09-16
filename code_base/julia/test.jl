@@ -1,15 +1,22 @@
+# Load libraries
 using PyCall
+using Test
 
-push!(pyimport("sys")["path"], pwd());
-# test = pyimport("test")
+# include python directory to look for modules
+pushfirst!(PyVector(pyimport("sys")."path"), "../to_julia/")
+pushfirst!(PyVector(pyimport("sys")."path"), "")
 
-#print("Import done\n")
+# make imports
+mf = pyimport("myfunc")
+cp_mc = pyimport("cp_motioncorrection")
 
-#@show test
+# Do something
+function jl_call_me(num)
+	return num+num
+end
 
-#x = test.TestClass.call_me_julia(3)
-#print(x)
+n = 3
+@test jl_call_me(n) == mf.standalone_call_me(n)
 
-@pyimport test.TestClass as testClass
-
+# Close
 print("\nDone\n")
