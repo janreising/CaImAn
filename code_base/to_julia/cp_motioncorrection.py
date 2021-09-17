@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Tuple, Union, Optional
 
 import pathlib
 
-from past.utils import old_div
+# from past.utils import old_div
 
 HAS_SIMA = False
 HAS_CUDA = False
@@ -1213,7 +1213,6 @@ def motion_correct_batch_pwrigid(fname, max_shifts, strides, overlaps, add_to_mo
 
     return fname_tot_els, total_template, templates, x_shifts, y_shifts, z_shifts, coord_shifts
 
-
 def motion_correction_piecewise(fname, splits, strides, overlaps, add_to_movie=0, template=None,
                                 max_shifts=(12, 12), max_deviation_rigid=3, newoverlaps=None, newstrides=None,
                                 upsample_factor_grid=4, order='F', dview=None, save_movie=True,
@@ -1297,7 +1296,6 @@ def motion_correction_piecewise(fname, splits, strides, overlaps, add_to_movie=0
         res = list(map(tile_and_correct_wrapper, pars))
 
     return fname_tot, res
-
 
 def tile_and_correct(img, template, strides, overlaps, max_shifts, newoverlaps=None, newstrides=None, upsample_factor_grid=4,
                      upsample_factor_fft=10, show_movie=False, max_deviation_rigid=2, add_to_movie=0, shifts_opencv=False, gSig_filt=None,
@@ -2171,7 +2169,6 @@ def load_movie_chain(file_list: List[str],
         mov.append(m)
     return concatenate(mov, axis=0)
 
-
 def load_memmap(filename: str, mode: str = 'r') -> Tuple[Any, Tuple, int]:
     """ Load a memory mapped file created by the function save_memmap
 
@@ -2211,7 +2208,6 @@ def load_memmap(filename: str, mode: str = 'r') -> Tuple[Any, Tuple, int]:
         return (Yr, (d1, d2), T)
     else:
         return (Yr, (d1, d2, d3), T)
-
 
 def save_memmap(filenames: List[str],
                 base_name: str = 'Yr',
@@ -2421,7 +2417,6 @@ def save_memmap(filenames: List[str],
         os.rename(fname_tot, fname_new)
 
     return fname_new
-
 
 def save_memmap_each(fnames: List[str],
                      dview=None,
@@ -3097,6 +3092,15 @@ class timeseries(np.ndarray):
 
         return obj
 
+def old_div(a, b):
+    """
+    Custom function, NOT proper python function. Weird hack to make our life
+    easier while we are converting from python to julia
+    """
+
+    return a/b
+
+
 class movie(timeseries):
     """
     Class representing a movie. This class subclasses timeseries,
@@ -3166,8 +3170,6 @@ class movie(timeseries):
             template: the computed template
         """
 
-        from past.utils import old_div
-
         if template is None:  # if template is not provided it is created
             if num_frames_template is None:
                 num_frames_template = old_div(10e7, (self.shape[1] * self.shape[2]))
@@ -3227,8 +3229,6 @@ class movie(timeseries):
                 median image
         """
 
-        from past.utils import old_div
-
         T, d1, d2 = np.shape(self)
         num_windows = np.int(old_div(T, window))
         num_frames = num_windows * window
@@ -3252,6 +3252,8 @@ class movie(timeseries):
 
         import cv2
 
+        # print("TEMPLATE: ", template.shape, template[0, 0], type(template))
+
         min_val = np.percentile(self, 1)
         if min_val < -0.1:
             # logging.debug("min_val in extract_shifts: " + str(min_val))
@@ -3261,7 +3263,7 @@ class movie(timeseries):
             min_val = 0
 
         if not isinstance(self[0, 0, 0], np.float32):
-            warnings.warn('Casting the array to float32')
+            # warnings.warn('Casting the array to float32')
             self = np.asanyarray(self, dtype=np.float32)
 
         _, h_i, w_i = self.shape
@@ -3273,7 +3275,7 @@ class movie(timeseries):
             template = np.median(self, axis=0)
         else:
             if np.percentile(template, 8) < -0.1:
-                # logging.warning('Movie average is negative. Removing 1st percentile.')
+                print('Movie average is negative. Removing 1st percentile.')
                 template = template - np.percentile(template, 1)
 
         template = template[ms_h:h_i - ms_h, ms_w:w_i - ms_w].astype(np.float32)
@@ -3286,6 +3288,7 @@ class movie(timeseries):
             if i % 100 == 99:
                 logging.debug(f"Frame {i + 1}")
             if method == 'opencv':
+                print("FRAME: ", frame.shape, frame[0, 0], type(frame))
                 res = cv2.matchTemplate(frame, template, cv2.TM_CCORR_NORMED)
                 top_left = cv2.minMaxLoc(res)[3]
             elif method == 'skimage':
