@@ -34,4 +34,5 @@ if __name__ == "__main__":
         with h5.File(output_file, "a") as out:
 
             for l1 in loc.split(","):
+                print("Copying loc: {}".format(l1))
                 file.copy(l1, out, l1)
