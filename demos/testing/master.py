@@ -71,7 +71,6 @@ if __name__ == "__main__":
 
     assert input_.endswith(".h5"), f"at this stage we should be working with an .h5 file. However: {input_}"
 
-
     if not on_server:
         num_proc = 6
     else:
@@ -95,6 +94,8 @@ if __name__ == "__main__":
             mc = CMotionCorrect(path=input_, verbose=3, delete_temp_files=delete_temp_files, on_server=on_server,
                                 dview=dview)
             mc.run_motion_correction(ram_size_multiplier=ram_size_multiplier, frames_per_file=frames_per_file)
+        else:
+            print(f"*MASTER* motion correction found!")
 
         #######
         # CNMFE
@@ -124,6 +125,8 @@ if __name__ == "__main__":
 
             t1 = time.time() - t0
             print("*MASTER* CNMFE finished in {:.2f} min".format(t1/60))
+        else:
+            print(f"*MASTER* CNMFE found!")
 
         #####
         # dFF
@@ -139,6 +142,9 @@ if __name__ == "__main__":
 
             t1 = time.time() - t0
             print("*MASTER* dFF finished in {:.2f} min".format(t1/60))
+
+        else:
+            print(f"*MASTER* dFF found!")
 
         ########
         # traces
@@ -156,6 +162,8 @@ if __name__ == "__main__":
 
             t1 = time.time() - t0
             print("*MASTER* trace finished in {:.2f} min".format(t1 / 60))
+        else:
+            print(f"*MASTER* traces found!")
 
     except Exception as err:
         print(err)
