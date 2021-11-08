@@ -32,4 +32,6 @@ if __name__ == "__main__":
     with h5.File(input_file, "r") as file:
 
         with h5.File(output_file, "a") as out:
-            file.copy(loc, out, loc)
+
+            for l1 in loc.split(","):
+                file.copy(l1, out, l1)
