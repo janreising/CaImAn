@@ -31,5 +31,5 @@ if __name__ == "__main__":
 
     with h5.File(input_file, "r") as file:
 
-        with h5.File(input_file+".copy", "a") as out:
+        with h5.File(output_file, "a") as out:
             file.copy(loc, out, loc)
