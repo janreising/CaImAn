@@ -24,7 +24,7 @@ if __name__ == "__main__":
     assert loc is not None, "Please provide a location '--loc' or '-l'"
 
     print("InputFile: ", input_file)
-    output_file = input_file+".copy"
+    output_file = input_file+loc.replace("/", ".")+".copy"
     print("OutputFile: ", output_file)
 
     assert not os.path.isfile(output_file), "output file already exists"
