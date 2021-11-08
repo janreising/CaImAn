@@ -447,6 +447,36 @@ class Converter():
 
         return False, container
 
+    def save_trace(self, file_path, channel):
+
+        file = h5py.File(file_path, "a")
+        data = file[channel]
+
+        # get data dimensions
+        cz, cx, cy = data.chunks
+        Z, X, Y = data.shape
+
+        # check ROI
+        rx0, rx1, ry0, ry1, rz0, rz1 = 0, X, 0, Y, 0, Z
+
+        # pre allocate
+        chunk = np.zeros(
+            [cz, rx1 - rx0, ry1 - ry0])  # TODO this is not correct; this is the total size not the chunk size
+        trace = np.zeros(rz1 - rz0)
+
+        # define outer loop
+        time_iterator = range(rz0, rz1, cz)
+
+        # loop over data set
+        for t0 in time_iterator:
+            z1 = min(cz, rz1 - t0)
+
+            chunk[0:z1, :, :] = data[t0:t0 + z1, rx0:rx1, ry0:ry1]
+            trace[t0:t0 + z1] = np.mean(chunk, axis=(1, 2))[0:z1]
+
+        # saving
+        arr_disk = file.create_dataset(channel.replace("dff/", "proc/trace/"), shape=(Z,))
+        arr_disk[:] = trace
 
 if __name__ == "__main__":
 

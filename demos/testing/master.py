@@ -140,6 +140,23 @@ if __name__ == "__main__":
             t1 = time.time() - t0
             print("*MASTER* dFF finished in {:.2f} min".format(t1/60))
 
+        ########
+        # traces
+        keys = get_keys(input_)
+        missing_trace = [key for key in keys if
+                       (key.startswith("dff/") and key.replace("dff/", "proc/trace/") not in keys)]
+
+        if len(missing_trace) > 0:
+
+            converter = Converter()
+
+            t0 = time.time()
+            for loc in missing_trace:
+                converter.save_trace(input_, channel=loc)
+
+            t1 = time.time() - t0
+            print("*MASTER* trace finished in {:.2f} min".format(t1 / 60))
+
     except Exception as err:
         print(err)
 
