@@ -43,7 +43,7 @@ if __name__ == "__main__":
             on_server = False
 
         if opt in ("-r", "--resize"):
-            resize_factor = arg
+            resize_factor = float(arg)
         else:
             resize_factor = 0.5
 
