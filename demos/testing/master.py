@@ -29,9 +29,9 @@ if __name__ == "__main__":
     # GET INPUT
     input_ = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["input=", "local="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:r:", ["input=", "local=", "resize="])
     except getopt.GetoptError:
-        print("master.py -i <input> -l <local>")
+        print("master.py -i <input> -l <local> -r <resize>")
         sys.exit(2)
 
     on_server = True
@@ -41,6 +41,11 @@ if __name__ == "__main__":
 
         if opt in ("-l", "--local"):
             on_server = False
+
+        if opt in ("-r", "--resize"):
+            resize_factor = arg
+        else:
+            resize_factor = 0.5
 
     ################
     # Pre-Processing
@@ -54,7 +59,6 @@ if __name__ == "__main__":
         input_ = loader.convert_folder(input_, del_folder=del_folder)
 
     # check if zip
-    resize_factor = 0.5
     if os.path.isfile(input_) and input_.endswith(".zip"):
         print(f"*MASTER* converting zip to h5")
         loader = Converter()

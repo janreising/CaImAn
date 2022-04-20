@@ -499,7 +499,7 @@ if __name__ == "__main__":
     if os.path.isdir(input_folder):
 
         # Convert
-        loader = Loader()
+        loader = Converter()
         pfolders = []
         print("Recognized folder")
         _, _, = loader.rec_search(input_folder, pfolders)
@@ -512,6 +512,6 @@ if __name__ == "__main__":
     elif os.path.isfile(input_folder) and input_folder.endswith(".zip"):
 
         print("Recognized zip file")
-        loader = Loader()
+        loader = Converter()
         loader.zip_to_h5(input_folder, input_folder+".h5", resize_factor=0.5)
 
