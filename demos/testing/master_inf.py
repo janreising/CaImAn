@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
         if len(missing_inf) > 0:
             for loc in missing_inf:
-                INF = Inference(input_, "~/Private/starsmooth/res/ast_full/", loc=loc)
+                INF = Inference(input_, "~/Private/starsmooth/res/", loc=loc)
                 INF.run()
         else:
             print("*MASTER* INF found!")
