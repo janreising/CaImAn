@@ -81,16 +81,8 @@ class Inference:
                                                            data_generator)
         self.inference_class = inferrence_class
 
-    def run(self):
-
-         ## settings
-        t0 = time.time()
-
-        # run inference
         print("**master** runing inference ...")
-        self.inferrence_class.run()
+        inferrence_class.run()
 
         print("**master** Inference finished")
-        self.inf_dir.cleanup()
-
-        print("**master** Total runtime: {:.1f} min".format((time.time()-t0)/60))
+        inf_dir.cleanup()
