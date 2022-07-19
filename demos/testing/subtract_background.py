@@ -136,6 +136,16 @@ if __name__ == "__main__":
         if opt in ("-i", "--ifolder"):
             input_folder = arg
 
+    if not os.path.isdir(input_folder):
+
+        if input_folder.endswith(".h5"):
+            print(".h5 already provided")
+            sys.exit(0)
+
+        else:
+            print("File type not recognized: ", input_folder)
+            sys.exit(1)
+
     # create paths
     file = input_folder.split(os.sep)[-2]
     base_dir = os.sep.join(input_folder.split(os.sep)[:-2])+os.sep
