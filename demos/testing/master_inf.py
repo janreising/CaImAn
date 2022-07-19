@@ -1,3 +1,12 @@
+import pip
+def import_or_install(package):
+    try:
+        __import__(package)
+    except ImportError:
+        pip.main(['install', package])
+
+import_or_install("nibabel")
+
 import dff
 import cnmfe2 as cnmfe
 from motion_correction import CMotionCorrect
@@ -10,14 +19,8 @@ import traceback
 import time
 from just_inference import Inference
 
-import pip
-def import_or_install(package):
-    try:
-        __import__(package)
-    except ImportError:
-        pip.main(['install', package])
 
-import_or_install("nibabel")
+
 
 def get_keys(path):
     keys = []
