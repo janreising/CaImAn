@@ -93,7 +93,7 @@ if __name__ == "__main__":
         # Inference
 
         keys = get_keys(input_)
-        # print(f"pre cnmfe keys: {keys}")
+        print(f"pre inf keys: {keys}")
         missing_inf = [key for key in keys if
                           (key.startswith("mc/") and key.replace("mc/", "inf/") not in keys)]
 
@@ -103,10 +103,11 @@ if __name__ == "__main__":
         else:
             print("*MASTER* INF found!")
 
+        """
         #######
         # CNMFE
         keys = get_keys(input_)
-        # print(f"pre cnmfe keys: {keys}")
+        print(f"pre cnmfe keys: {keys}")
         missing_cnmfes = [key for key in keys if
                           (key.startswith("inf/") and key.replace("inf/", "cnmfe/") not in keys)]
         # print(f"keys: {missing_cnmfes}")
@@ -133,6 +134,7 @@ if __name__ == "__main__":
             print("*MASTER* CNMFE finished in {:.2f} min".format(t1/60))
         else:
             print(f"*MASTER* CNMFE found!")
+        """
 
         #####
         # dFF
