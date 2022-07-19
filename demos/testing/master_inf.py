@@ -2,8 +2,11 @@ import pip
 def import_or_install(package):
     try:
         __import__(package)
+        print("imported: ", package)
     except ImportError:
+        print("Package not found: ", package)
         pip.main(['install', package])
+        print("Installed package: ", package)
 
 import_or_install("nibabel")
 
