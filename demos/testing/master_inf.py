@@ -8,6 +8,7 @@ import h5py as h5
 import caiman as cm
 import traceback
 import time
+import starsmooth
 from starsmooth.just_inference import Inference
 
 def get_keys(path):
