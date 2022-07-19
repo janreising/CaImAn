@@ -24,7 +24,7 @@ from tensorflow.keras.constraints import NonNeg
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
-from starsmooth.generic import JsonLoader
+from generic import JsonLoader
 
 
 def autoencoder_single_256(path_json):

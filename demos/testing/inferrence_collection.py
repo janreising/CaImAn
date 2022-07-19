@@ -2,9 +2,9 @@ import warnings
 
 import h5py
 import numpy as np
-from starsmooth.generic import JsonLoader
+from generic import JsonLoader
 from tensorflow.keras.models import load_model
-import starsmooth.loss_collection as lc
+import loss_collection as lc
 
 
 class fmri_inferrence:

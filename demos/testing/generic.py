@@ -102,10 +102,10 @@ class ClassLoader:
     It returns that object and the ClassLoader object should then be deleted. 
     """
 
-    from starsmooth import network_collection
-    from starsmooth import generator_collection
-    from starsmooth import trainor_collection
-    from starsmooth import inferrence_collection
+    import network_collection
+    import generator_collection
+    import trainor_collection
+    import inferrence_collection
 
     def __init__(self, json_path):
         json_class = JsonLoader(json_path)

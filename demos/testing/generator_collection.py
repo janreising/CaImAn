@@ -6,7 +6,7 @@ import tensorflow.keras as keras
 import tifffile
 import nibabel as nib
 import glob
-from starsmooth.generic import JsonLoader
+from generic import JsonLoader
 
 
 class MaxRetryException(Exception):

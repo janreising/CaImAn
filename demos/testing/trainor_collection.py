@@ -4,9 +4,9 @@ import tensorflow
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
-import starsmooth.loss_collection as lc
+import loss_collection as lc
 from tensorflow.keras.layers import Input
-from starsmooth.generic import JsonLoader
+from generic import JsonLoader
 import math
 import matplotlib.pylab as plt
 from tensorflow.keras.models import load_model

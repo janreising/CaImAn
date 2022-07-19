@@ -3,7 +3,7 @@
 # !pip install nibabel
 
 ## imports
-from starsmooth.generic import JsonSaver, ClassLoader
+from generic import JsonSaver, ClassLoader
 import os
 import glob
 import time
