@@ -29,7 +29,9 @@ def calculate_dFF(path, loc,
             with h5.File(path, "a") as file:
                 new_loc = loc.replace(loc.split("/")[0], "dff")
                 if new_loc not in file:
-                    data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="float32", chunks=(100, 100, 100),
+
+                    chunks = (100, 100, 100) if Z > cz else None
+                    data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="float32", chunks=chunks,
                                         compression="gzip", shuffle=True)
                 else:
                     data = file[f"{new_loc}"]
