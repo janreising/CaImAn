@@ -27,7 +27,7 @@ def calculate_dFF(path, loc,
             dff, _ = rec.computeDFF(secsWindow=secsWindow, method=method, quantilMin=quantilMin)
 
             with h5.File(path, "a") as file:
-                new_loc = loc.replace("cnmfe", "dff")
+                new_loc = loc.replace(loc.split("/")[0], "dff")
                 if new_loc not in file:
                     data = file.create_dataset(f"{new_loc}", shape=(Z, X, Y), dtype="float32", chunks=(100, 100, 100),
                                         compression="gzip", shuffle=True)
