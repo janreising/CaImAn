@@ -10,6 +10,15 @@ import traceback
 import time
 from just_inference import Inference
 
+import pip
+def import_or_install(package):
+    try:
+        __import__(package)
+    except ImportError:
+        pip.main(['install', package])
+
+import_or_install("nibabel")
+
 def get_keys(path):
     keys = []
     with h5.File(path, "r") as file:
