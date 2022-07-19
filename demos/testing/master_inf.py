@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
         if len(missing_inf) > 0:
             for loc in missing_inf:
-                INF = Inference(input_, "ast_model.h5", loc=loc)
+                INF = Inference(input_file=input_, model="ast_model.h5", loc=loc)
                 INF.run()
         else:
             print("*MASTER* INF found!")

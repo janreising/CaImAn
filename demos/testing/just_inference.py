@@ -17,7 +17,7 @@ class Inference:
 
         # quality control
         assert os.path.isfile(input_file), "input doesn't exist: "+ input_file
-        assert os.path.isdir(model) or os.path.isfile(model), "model doesn't exist: "+ model
+        assert os.path.isdir(model) or os.path.isfile(model), "model doesn't exist: {}".format(model)
 
         # ##############
         # # INFERENCE ##
