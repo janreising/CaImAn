@@ -1,17 +1,18 @@
 import random
 
-import dask.array
 import h5py as h5
 import numpy as np
 import sys, os, getopt, time
 # import caiman as cm
 from tqdm import tqdm
-from multiprocessing import Pool, cpu_count
+# from multiprocessing import Pool, cpu_count
 from itertools import repeat
 import tiledb
 import tifffile as tf
 import pandas as pd
 from scipy.ndimage import minimum_filter1d
+from dask.distributed import Client, LocalCluster
+from dask import array as da
 
 def calculate_dFF(path, loc,
                   method="only_baseline", secsWindow = 5, quantilMin = 8):
@@ -159,39 +160,67 @@ def dFF(file, dims, window, out, method='dF'):
 
     return 1
 
-def get_dFF(file, window=2000, steps=32, x_range=None, y_range=None, method='dF'):
+def save_to_tiledb(uri, data, chunks):
 
-    tdb = tiledb.open(file, mode="r")
-    Z, X, Y = tdb.shape
-    tdb.close()
+    dadata = da.from_array(data, chunks=chunks)
+    dadata.to_tiledb(uri)
 
-    out = file[:-1] + file[-1].replace(os.sep, "") + ".res/"
+def get_dFF(file, loc=None, window=2000, steps=32, x_range=None, y_range=None, method='dF'):
+
+    h5path = None
+    if file.endswith(".tdb"):
+        tdb = tiledb.open(file, mode="r")
+        Z, X, Y = tdb.shape
+        tdb.close()
+
+    elif file.endswith(".h5"):
+
+        assert loc is not None, "when providing .h5 file you also need to provide 'loc' argument"
+
+        out_path = file.replace(".h5", "."+loc.replace("/", ".")+".tdb")
+
+        if os.path.isdir(out_path):
+            tdb = tiledb.open(out_path, mode="r")
+            Z, X, Y = tdb.shape
+            tdb.close()
+            file = out_path
+        else:
+
+            h5path = file
+            print("saving temp tdb file ...")
+            with h5.File(file, "r") as h5file:
+                data = h5file[loc]
+                Z, X, Y = data.shape
+                save_to_tiledb(out_path, data, (-1, steps, steps))
+
+            file = out_path
+
+    out = file[:-1] + file[-1].replace(os.sep, "") + ".dF/"
     if not os.path.isdir(out):
         os.mkdir(out)
 
-    dims = []
-    for x in range(max(0, x_range[0]), min(X, x_range[1]), steps):
-        for y in range(max(0, y_range[0]), min(Y, y_range[1]), steps):
-            dims.append([x, x+steps, y, y+steps])
+    # TODO does this mean I don't need to save it differently?
+    # TODO clean up
+    futures = []
+    with Client() as client:
+        for x in range(max(0, x_range[0]), min(X, x_range[1]), steps):
+            for y in range(max(0, y_range[0]), min(Y, y_range[1]), steps):
+                futures.append(client.submit(dFF, file, [x, x+steps, y, y+steps], window, out, method))
 
-    # for dim in dims:
-    #     print(dim)
-    # return 0
+        # random.shuffle(tasks)
+        print("#tasks: ", len(futures))
 
-    tasks = list(zip(
-        repeat(file), dims, repeat(window), repeat(out), repeat(method)
-    ))
-    random.shuffle(tasks)
-    print("#tasks: ", len(tasks))
+        client.gather(futures)
 
-    with Pool(cpu_count()) as p:
-        p.starmap(dFF, tasks)
+    # with Pool(cpu_count()) as p:
+    #     p.starmap(dFF, tasks)
 
     # combine
     print("combining results")
     res = np.zeros((Z, min(X, x_range[1]-x_range[0]), min(Y, y_range[1]-y_range[0])),
                    dtype="f4" if method == 'dFF' else "i2"
                    )
+
     print("RES: ", res.shape, res.dtype)
     for r in tqdm(os.listdir(out)):
 
@@ -202,43 +231,42 @@ def get_dFF(file, window=2000, steps=32, x_range=None, y_range=None, method='dF'
         x0, x1 = int(x0), int(x1)
         y0, y1 = int(y0), int(y1)
 
-        # print("Pre: {}-{} [{}] x {}-{} [{}]".format(x0, x1, x1-x0, y0, y1, y1-y0))
-
         if x_range is not None:
             x0, x1 = x0-x_range[0], x1-x_range[0]
 
         if y_range is not None:
             y0, y1 = y0-y_range[0], y1-y_range[0]
 
-        # print("Post: {}-{} [{}] x {}-{} [{}]".format(x0, x1, x1-x0, y0, y1, y1-y0))
-
-        # loaded = np.load(out+r, allow_pickle=True)
-        # print("{} <- {}".format(res[:, x0:x1, y0:y1].shape, loaded.shape))
-
         res[:, x0:x1, y0:y1] = np.load(out+r, allow_pickle=True)
+        os.remove(out+r)
+    os.rmdir(out)
 
-    # if not os.path.isfile(file+".h5"):
-    #     print("save to .h5")
-    #     with h5.File(file+".h5", "w") as f:
-    #         f.create_dataset("dFF/ast", res.shape, dtype=np.uintc, data=res, chunks=(100, 100, 100))
+    if h5path is not None:
+        print("saving to {}".format(h5path))
+        with h5.File(h5path, "a") as f:
+            f.create_dataset("dff/"+loc.split("/")[-1], res.shape, dtype="i2", data=res, chunks=(100, 100, 100))
 
-    print("save to tiff: ", file+".tiff")
-    tf.imwrite(file+".tiff", res)
-
-    print("Done")
+    tdb_path = file[:-1] + file[-1].replace(os.sep, "")
+    tdb_path = tdb_path.replace(".tdb", ".dF.tdb")
+    print("saving dF to ", tdb_path)
+    save_to_tiledb(tdb_path, res, (100, 100, 100))
 
 if __name__ == "__main__":
 
     input_file = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "local="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "loc="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file>")
         sys.exit(2)
 
+    loc=None
     for opt, arg in opts:
         if opt in ("-i", "--input_file"):
             input_file = arg
+
+        if opt in ("-l", "--loc"):
+            loc = arg
 
     # assert os.path.isfile(input_file), "input_file is not a file: {}".format(input_file)
 
@@ -246,7 +274,7 @@ if __name__ == "__main__":
     # calculate_dFF(input_file, "cnmfe/ast")
     # calculate_dFF(input_file, "cnmfe/neu")
 
-    get_dFF(input_file, window=2000, x_range=(0, 512), y_range=(0, 512), steps=64, method='dFF')
+    get_dFF(input_file, loc=loc, window=2000, x_range=(0, 512), y_range=(0, 512), steps=64, method='dF')
 
     t1 = (time.time() - t0) / 60
     print("dFF finished in {:.2f}".format(t1))

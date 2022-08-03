@@ -238,6 +238,15 @@ if __name__ == "__main__":
         for ch in [c for c in preprop["channel"] if c != preprop["empty_channels"]]:
             data[ch::num_channels] = data[ch::num_channels] - preprop["subtract_value"]
 
+    elif ("subtract_folder" in preprop.keys()) and (preprop["subtract_folder"] is not None):
+
+        background = imread.imread(input_folder+preprop["subtract_folder"])
+        xy_noise = da.mean(background, axis=0)
+        da.to_hdf5(out, "/background/xy_noise", xy_noise)
+
+        for ch in [c for c in preprop["channel"] if c != preprop["empty_channels"]]:
+            data[ch::num_channels] = data[ch::num_channels] - xy_noise
+
 
     # prepare resizing
     apply_resize=False
