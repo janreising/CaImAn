@@ -10,8 +10,8 @@ def import_or_install(package):
 
 import_or_install("nibabel")
 
-import dff
-import cnmfe2 as cnmfe
+import delta
+# import cnmfe2 as cnmfe
 from motion_correction import CMotionCorrect
 from calpack import Converter
 from overview import main as overview
@@ -146,8 +146,13 @@ if __name__ == "__main__":
         if len(missing_dFF) > 0:
             t0 = time.time()
             for loc in missing_dFF:
-                #method='only_baseline','delta_f_over_f','delta_f_over_sqrt_f'
-                dff.calculate_dFF(input_, loc, method="delta_f_over_sqrt_f")
+
+                # TODO read json here
+                d = delta.Delta(input_, loc=loc, verbose=2)
+                d.run(window=2000, steps=None, method='dF')
+
+                # #method='only_baseline','delta_f_over_f','delta_f_over_sqrt_f'
+                # dff.calculate_dFF(input_, loc, method="delta_f_over_sqrt_f")
 
             t1 = time.time() - t0
             print("*MASTER* dFF finished in {:.2f} min".format(t1/60))
