@@ -119,7 +119,6 @@ def dFF(file, dims, window, out, method='dF'):
     assert method in methods, "please provide a valid method instead of {}: {}".format(method, methods)
 
     x0, x1, y0, y1 = dims
-    # print("received: {}-{} x {}-{}".format(x0, x1, y0, y1))
     save_path = "{}{}-{}x{}-{}.npy".format(out, x0, x1, y0, y1)
     if os.path.isfile(save_path):
         print("precalculated range: {}-{} x {}-{}".format(x0, x1, y0, y1))
@@ -217,39 +216,7 @@ def get_dFF(file, loc=None, window=2000, steps=32, x_range=None, y_range=None, m
 
     # combine
     print("combining results")
-    res = np.zeros((Z, min(X, x_range[1]-x_range[0]), min(Y, y_range[1]-y_range[0])),
-                   dtype="f4" if method == 'dFF' else "i2"
-                   )
 
-    print("RES: ", res.shape, res.dtype)
-    for r in tqdm(os.listdir(out)):
-
-        x, y = r.split(".")[0].split("x")
-        x0, x1 = x.split("-")
-        y0, y1 = y.split("-")
-
-        x0, x1 = int(x0), int(x1)
-        y0, y1 = int(y0), int(y1)
-
-        if x_range is not None:
-            x0, x1 = x0-x_range[0], x1-x_range[0]
-
-        if y_range is not None:
-            y0, y1 = y0-y_range[0], y1-y_range[0]
-
-        res[:, x0:x1, y0:y1] = np.load(out+r, allow_pickle=True)
-        os.remove(out+r)
-    os.rmdir(out)
-
-    if h5path is not None:
-        print("saving to {}".format(h5path))
-        with h5.File(h5path, "a") as f:
-            f.create_dataset("dff/"+loc.split("/")[-1], res.shape, dtype="i2", data=res, chunks=(100, 100, 100))
-
-    tdb_path = file[:-1] + file[-1].replace(os.sep, "")
-    tdb_path = tdb_path.replace(".tdb", ".dF.tdb")
-    print("saving dF to ", tdb_path)
-    save_to_tiledb(tdb_path, res, (100, 100, 100))
 
 if __name__ == "__main__":
 
