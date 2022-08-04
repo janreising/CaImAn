@@ -13,6 +13,7 @@ import shutil
 import getopt
 import sys
 import time
+from dask.diagnostics import ProgressBar
 
 @deprecated(reason="slow initial implementation")
 def calculate_background(trace, window):
@@ -156,9 +157,10 @@ class Delta:
 
         # save to tiledb
         with h5.File(h5path, "r") as file:
-            data = da.from_array(file[loc], chunks=chunks)
-            data.to_tiledb(tileDBpath)
-            self.chunksize = data.chunksize
+            with ProgressBar():
+                data = da.from_array(file[loc], chunks=chunks)
+                data.to_tiledb(tileDBpath)
+                self.chunksize = data.chunksize
 
         self.vprint("tileDB saved to: {}".format(tileDBpath), urgency=2)
 
@@ -213,19 +215,20 @@ class Delta:
             steps = cx
 
         futures = []
-        with Client() as client:
-            for x in range(0, self.X, steps):
-                for y in range(0, self.Y, steps):
-                    futures.append(
-                        client.submit(self.calculate_delta, #self,
-                                      tileDBpath, [x, int(x+steps), y, int(y+steps)], window, temp_dir, method
-                                                 )
-            )
+        with ProgressBar():
+            with Client() as client:
+                for x in range(0, self.X, steps):
+                    for y in range(0, self.Y, steps):
+                        futures.append(
+                            client.submit(self.calculate_delta, #self,
+                                          tileDBpath, [x, int(x+steps), y, int(y+steps)], window, temp_dir, method
+                                                     )
+                )
 
-            self.vprint("#tasks: {}".format(len(futures)), urgency=1)
-            client.gather(futures)
+                self.vprint("#tasks: {}".format(len(futures)), urgency=1)
+                client.gather(futures)
 
-            return temp_dir
+        return temp_dir
 
     def combine_results(self, output_dir, method, overwrite_existing=True):
 
@@ -271,7 +274,8 @@ class Delta:
             self.vprint("removing previous result ...", urgency=1)
             shutil.rmtree(tdb_path)
 
-        da.from_array(combined_delta).to_tiledb(tdb_path, (100, 100, 100))
+        with ProgressBar():
+            da.from_array(combined_delta).to_tiledb(tdb_path, (100, 100, 100))
 
 
 if __name__ == "__main__":
