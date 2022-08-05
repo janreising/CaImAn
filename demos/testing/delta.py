@@ -128,7 +128,7 @@ class Delta:
 
         # combine results
         self.vprint("combining results", 1)
-        self.combine_results(temp_dir, method)
+        self.combine_results(temp_dir)
 
         # clean up
         if delete_tiledb: shutil.rmtree(tileDBpath)
@@ -172,7 +172,7 @@ class Delta:
         assert method in methods, "please provide a valid method instead of {}: {}".format(method, methods)
 
         x0, x1, y0, y1 = dims
-        save_path = "{}{}-{}x{}-{}.npy".format(working_dir, x0, x1, y0, y1)
+        save_path = Path(working_dir).joinpath(f"{x0}-{x1}x{y0}-{y1}.npy").as_posix()
         if os.path.isfile(save_path):
             print("precalculated range: {}-{} x {}-{}".format(x0, x1, y0, y1))
             return 1
@@ -197,7 +197,11 @@ class Delta:
                 elif method == 'dFF':
                      res[:, x, y] = np.divide(data[:, x, y] - background, background)
 
+        print("DIR: ", os.listdir(working_dir))
+
         np.save(save_path, res)
+
+        print("DIR: ", os.listdir(working_dir))
 
         self.vprint("Finished range: {}-{} x {}-{}".format(x0, x1, y0, y1), urgency=2)
 
@@ -206,7 +210,10 @@ class Delta:
     def get_delta(self, tileDBpath, window=2000, steps=None, method='dF'):
 
         # create temp directory
-        temp_dir = tempfile.mkdtemp()
+        # temp_dir = tempfile.mkdtemp()
+        temp_dir = Path(tileDBpath).with_suffix(".temp").as_posix()
+        if not os.path.isdir(temp_dir):
+            os.mkdir(temp_dir)
 
         # get steps
         if steps is None:
@@ -230,12 +237,9 @@ class Delta:
 
         return temp_dir
 
-    def combine_results(self, output_dir, method, overwrite_existing=True):
+    def combine_results(self, output_dir, overwrite_existing=True, save_tiff=True):
 
-        combined_delta = np.zeros((self.Z, self.X, self.Y),
-              dtype="f4" if method == 'dFF' else "i2"
-               )
-
+        combined_delta = None
         for r in os.listdir(output_dir):
 
             x, y = r.split(".")[0].split("x")
@@ -245,8 +249,15 @@ class Delta:
             x0, x1 = int(x0), int(x1)
             y0, y1 = int(y0), int(y1)
 
-            combined_delta[:, x0:x1, y0:y1] = np.load(output_dir+r, allow_pickle=True)
-            os.remove(output_dir+r)
+            # combine data
+            block = np.load(Path(output_dir).joinpath(r), allow_pickle=True)
+
+            if combined_delta is None:
+                combined_delta = np.zeros((self.Z, self.X, self.Y), dtype=block.dtype)
+
+            combined_delta[:, x0:x1, y0:y1] = block
+            os.remove(Path(output_dir).joinpath(r))
+
         os.rmdir(output_dir)
 
         # save to h5 file if provided
@@ -257,7 +268,8 @@ class Delta:
                 new_loc = "dff/"+self.loc.split("/")[-1]
 
                 if new_loc not in f:
-                    f.create_dataset(new_loc, combined_delta.shape, dtype="i2", data=combined_delta, chunks=(100, 100, 100))
+                    f.create_dataset(new_loc, shape=combined_delta.shape, dtype=combined_delta.dtype,
+                                     data=combined_delta, chunks=(100, 100, 100))
                 elif overwrite_existing:
                     location = f[new_loc]
                     location[:] = combined_delta
@@ -277,6 +289,11 @@ class Delta:
         with ProgressBar():
             da.from_array(combined_delta).to_tiledb(tdb_path, (100, 100, 100))
 
+        # save tiff
+        if save_tiff:
+            import tifffile as tf
+            tiff_path = Path(self.input_data).with_suffix(".tiff").as_posix()
+            tf.imwrite(tiff_path, combined_delta)
 
 if __name__ == "__main__":
 
