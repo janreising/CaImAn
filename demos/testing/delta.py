@@ -268,8 +268,14 @@ class Delta:
                 new_loc = "dff/"+self.loc.split("/")[-1]
 
                 if new_loc not in f:
+
+                    chunks = (
+                        min(100, combined_delta.shape[0]),
+                        min(100, combined_delta.shape[1]),
+                        min(100, combined_delta.shape[1]))
+
                     f.create_dataset(new_loc, shape=combined_delta.shape, dtype=combined_delta.dtype,
-                                     data=combined_delta, chunks=(100, 100, 100))
+                                     data=combined_delta, chunks=chunks)
                 elif overwrite_existing:
                     location = f[new_loc]
                     location[:] = combined_delta
