@@ -7,7 +7,7 @@ import tiledb
 import os
 from deprecated import deprecated
 from scipy.ndimage import minimum_filter1d
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 import tempfile
 import shutil
 import getopt
@@ -223,17 +223,18 @@ class Delta:
 
         futures = []
         with ProgressBar():
-            with Client() as client:
-                for x in range(0, self.X, steps):
-                    for y in range(0, self.Y, steps):
-                        futures.append(
-                            client.submit(self.calculate_delta, #self,
-                                          tileDBpath, [x, int(x+steps), y, int(y+steps)], window, temp_dir, method
-                                                     )
-                )
+            with LocalCluster() as lc:
+                with Client(lc) as client:
+                    for x in range(0, self.X, steps):
+                        for y in range(0, self.Y, steps):
+                            futures.append(
+                                client.submit(self.calculate_delta, #self,
+                                              tileDBpath, [x, int(x+steps), y, int(y+steps)], window, temp_dir, method
+                                                         )
+                    )
 
-                self.vprint("#tasks: {}".format(len(futures)), urgency=1)
-                client.gather(futures)
+                    self.vprint("#tasks: {}".format(len(futures)), urgency=1)
+                    client.gather(futures)
 
         return temp_dir
 
@@ -285,7 +286,8 @@ class Delta:
                     ))
 
         # save to tiledb
-        tdb_path = Path(self.input_data).with_suffix(".delta").as_posix()
+        suffix = ".{}.delta".format(self.loc.split("/")[-1])
+        tdb_path = Path(self.input_data).with_suffix(suffix).as_posix()
         self.vprint("saving delta to {}".format(tdb_path), urgency=1)
 
         if os.path.isdir(tdb_path):
