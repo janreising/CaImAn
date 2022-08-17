@@ -11,7 +11,7 @@ def import_or_install(package):
 import_or_install("nibabel")
 
 import delta
-# import cnmfe2 as cnmfe
+import cnmfe2 as cnmfe
 from motion_correction import CMotionCorrect
 from calpack import Converter
 from overview import main as overview
@@ -99,7 +99,22 @@ if __name__ == "__main__":
 
         if len(missing_inf) > 0:
             for loc in missing_inf:
-                Inference(input_file=input_, model="/proj/nobackup/herlenius_aldh1l1/ast_model.h5", loc=loc)
+
+                if loc.endswith("neu"):
+
+                    with h5.File(input_, "r") as file:
+                        data = file[loc]
+                        z, x, y = data.shape
+
+                    steps = 400
+                    for z0 in range(0, z, steps):
+                        z1 = min(z, z0+steps)
+                        print(f"*MASTER* CNMFE processing indices {z0}:{z1} for loc {loc}")
+
+                        cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+
+                else:
+                    Inference(input_file=input_, model="/proj/nobackup/herlenius_aldh1l1/ast_model.h5", loc=loc)
         else:
             print("*MASTER* INF found!")
 
