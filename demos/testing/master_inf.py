@@ -22,9 +22,6 @@ import traceback
 import time
 from just_inference import Inference
 
-
-
-
 def get_keys(path):
     keys = []
     with h5.File(path, "r") as file:

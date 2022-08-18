@@ -107,7 +107,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
         with h5.File(path, "a") as file:
 
-            new_loc = loc.replace("mc", "cnmfe")
+            new_loc = loc.replace("mc", "inf")
             if new_loc not in file:
                 data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape,
                                            compression="gzip", chunks=(100, 100, 100), shuffle=True)
@@ -122,7 +122,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
             print(f"Saved cnmfe result to {new_loc}")
 
         if save_tiff:
-            tf.imsave(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
+            tf.imwrite(path+"_"+loc.replace("/", "-")+"{}-{}".format(indices.start, indices.stop)+".tiff", rec)
             print("Sample saved!")
 
         # # save dFF
