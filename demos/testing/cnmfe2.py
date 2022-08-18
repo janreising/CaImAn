@@ -107,7 +107,7 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
         with h5.File(path, "a") as file:
 
-            new_loc = loc.replace("mc", "inf")
+            new_loc = loc.replace("mc", "cnmfe")
             if new_loc not in file:
                 data = file.create_dataset(new_loc, dtype="i2", shape=file[loc].shape,
                                            compression="gzip", chunks=(100, 100, 100), shuffle=True)

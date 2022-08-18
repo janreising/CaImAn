@@ -151,8 +151,13 @@ if __name__ == "__main__":
         #####
         # dFF
         keys = get_keys(input_)
-        missing_dFF = [key for key in keys if
+        missing_dFF_inf = [key for key in keys if
                           (key.startswith("inf/") and key.replace("inf/", "dff/") not in keys)]
+
+        missing_dFF_cnmfe = [key for key in keys if
+                          (key.startswith("cnmfe/") and key.replace("cnmfe/", "dff/") not in keys)]
+
+        missing_dFF = missing_dFF_inf + missing_dFF_cnmfe
 
         print(f"pre dFF keys: {missing_dFF}")
         if len(missing_dFF) > 0:
