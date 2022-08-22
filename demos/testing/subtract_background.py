@@ -153,8 +153,8 @@ if __name__ == "__main__":
     out = base_dir+file+".h5"
 
     file = Path(input_folder).name
-    base_dir = Path(input_folder).parent.as_posix()
-    out = Path(input_folder).with_suffix(".h5").as_posix()
+    base_dir = Path(input_folder).parent
+    out = Path(input_folder).with_suffix(".h5")
 
     print("input: ", input_folder)
     print("file: ", file)
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     #     json.dump(info, o, indent=2, sort_keys=True)
 
     # load meta
-    with open(base_dir+file+".json", "r") as i:
+    with open(out.with_suffix(".json").as_posix(), "r") as i:
         meta = json.load(i)
 
     print(meta)
@@ -225,15 +225,15 @@ if __name__ == "__main__":
 
         print("Calculating trace")
         trace = da.mean(background, axis=(1, 2))
-        da.to_hdf5(out, "/background/trace", trace)
+        da.to_hdf5(out.as_posix(), "/background/trace", trace)
 
         print("Calculating noise mean")
         xy_noise = da.mean(background, axis=0)
-        da.to_hdf5(out, "/background/xy_noise", xy_noise)
+        da.to_hdf5(out.as_posix(), "/background/xy_noise", xy_noise)
 
         print("Calculating noise std")
         xy_noise_std = da.std(background, axis=0)
-        da.to_hdf5(out, "/background/xy_noise_std", xy_noise_std)
+        da.to_hdf5(out.as_posix(), "/background/xy_noise_std", xy_noise_std)
 
         print("Subtracting ...")
         data[data_channel::num_channels] = data[data_channel::num_channels] - xy_noise
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
         background = imread.imread(input_folder+preprop["subtract_folder"])
         xy_noise = da.mean(background, axis=0)
-        da.to_hdf5(out, "/background/xy_noise", xy_noise)
+        da.to_hdf5(out.as_posix(), "/background/xy_noise", xy_noise)
 
         for ch in [c for c in preprop["channel"] if c != preprop["empty_channels"]]:
             data[ch::num_channels] = data[ch::num_channels] - xy_noise
@@ -293,7 +293,7 @@ if __name__ == "__main__":
 
         print("Saving ...")
         loc = "/data/"+preprop["channel_label"][ch]
-        da.to_hdf5(out, loc, img, chunks=tuple(preprop["chunks"]),
+        da.to_hdf5(out.as_posix(), loc, img, chunks=tuple(preprop["chunks"]),
                    compression=preprop["compression"], shuffle=False)
 
     pbar.unregister()
