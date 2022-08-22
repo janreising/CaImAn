@@ -8,6 +8,7 @@ import sys
 from skimage.transform import resize, rescale
 from skimage.util import img_as_uint
 import getopt
+from pathlib import Path
 
 def zip_to_h5(self, zip_file, out, channels=2,
                   channel_labels={1: "neu", 2: "ast"}, resize_factor=1,
@@ -150,6 +151,10 @@ if __name__ == "__main__":
     file = input_folder.split(os.sep)[-2]
     base_dir = os.sep.join(input_folder.split(os.sep)[:-2])+os.sep
     out = base_dir+file+".h5"
+
+    file = Path(input_folder).name
+    base_dir = Path(input_folder).parent.as_posix()
+    out = Path(input_folder).with_suffix(".h5").as_posix()
 
     print("input: ", input_folder)
     print("file: ", file)
