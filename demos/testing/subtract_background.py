@@ -148,13 +148,10 @@ if __name__ == "__main__":
             sys.exit(1)
 
     # create paths
-    file = input_folder.split(os.sep)[-2]
-    base_dir = os.sep.join(input_folder.split(os.sep)[:-2])+os.sep
-    out = base_dir+file+".h5"
-
     file = Path(input_folder).name
     base_dir = Path(input_folder).parent
     out = Path(input_folder).with_suffix(".h5")
+    input_folder = Path(input_folder)
 
     print("input: ", input_folder)
     print("file: ", file)
@@ -190,7 +187,7 @@ if __name__ == "__main__":
     pbar.register()
 
     # rename for appropriate sorting
-    fnames = os.listdir(input_folder)
+    fnames = os.listdir(input_folder.as_posix())
     num_digits = len(str(len(fnames)))
     print("#digits: ", num_digits)
 
@@ -203,10 +200,10 @@ if __name__ == "__main__":
         new_fname = "_".join(fname.split("_")[:-1]) + "_" + digit + ".tiff"
 
         if fname != new_fname:
-            os.rename(input_folder+fname, input_folder+new_fname)
+            os.rename(input_folder.joinpath(fname).as_posix(), input_folder.joinpath(new_fname).as_posix())
 
     # load files
-    data = imread.imread(input_folder+"*.tiff")
+    data = imread.imread(input_folder.joinpath("*.tiff").as_posix())
     print(data)
 
     num_channels = len(preprop["channel"])
@@ -245,7 +242,7 @@ if __name__ == "__main__":
 
     elif ("subtract_folder" in preprop.keys()) and (preprop["subtract_folder"] is not None):
 
-        background = imread.imread(input_folder+preprop["subtract_folder"])
+        background = imread.imread(input_folder.joinpath(preprop["subtract_folder"]))
         xy_noise = da.mean(background, axis=0)
         da.to_hdf5(out.as_posix(), "/background/xy_noise", xy_noise)
 
