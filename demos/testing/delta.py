@@ -197,11 +197,7 @@ class Delta:
                 elif method == 'dFF':
                      res[:, x, y] = np.divide(data[:, x, y] - background, background)
 
-        print("DIR: ", os.listdir(working_dir))
-
         np.save(save_path, res)
-
-        print("DIR: ", os.listdir(working_dir))
 
         self.vprint("Finished range: {}-{} x {}-{}".format(x0, x1, y0, y1), urgency=2)
 
@@ -307,13 +303,13 @@ if __name__ == "__main__":
 
     input_file = None
     loc = None
+    window=2000
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:", ["ifolder=", "loc="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:w:", ["ifolder=", "loc=", "window="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file>")
         sys.exit(2)
 
-    loc=None
     for opt, arg in opts:
         if opt in ("-i", "--input_file"):
             input_file = arg
@@ -321,5 +317,9 @@ if __name__ == "__main__":
         if opt in ("-l", "--loc"):
             loc = arg
 
+        if opt in ("-w", "--window"):
+            window = int(arg)
+
+
     d = Delta(input_file, loc=loc, verbose=5)
-    d.run()
+    d.run(window=window)

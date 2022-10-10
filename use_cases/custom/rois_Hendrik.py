@@ -28,7 +28,7 @@ from scipy import ndimage as ndi
 from scipy.optimize import linear_sum_assignment
 import shutil
 from skimage.filters import sobel
-from skimage.morphology import watershed
+from skimage.segmentation import watershed
 from skimage.draw import polygon
 from skimage.segmentation import find_boundaries
 from skimage.io import imsave
