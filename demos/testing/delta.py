@@ -296,7 +296,7 @@ class Delta:
         # save tiff
         if save_tiff:
             import tifffile as tf
-            tiff_path = Path(self.input_data).with_suffix(".tiff").as_posix()
+            tiff_path = Path(self.input_data).with_suffix(f".dff.{loc}.tiff").as_posix()
             tf.imwrite(tiff_path, combined_delta)
 
 if __name__ == "__main__":
