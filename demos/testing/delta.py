@@ -105,7 +105,7 @@ class Delta:
             self.Z, self.X, self.Y = None, None, None
             print("Unknown input data type: {}".format(input_data))
 
-    def run(self, window=2000, steps=None, method='dF'):
+    def run(self, window=2000, steps=None, method='dF', new_loc=None):
 
         t0 = time.time()
 
@@ -128,7 +128,7 @@ class Delta:
 
         # combine results
         self.vprint("combining results", 1)
-        self.combine_results(temp_dir)
+        self.combine_results(temp_dir, new_loc=new_loc)
 
         # clean up
         if delete_tiledb: shutil.rmtree(tileDBpath)
@@ -214,7 +214,7 @@ class Delta:
         # get steps
         if steps is None:
             _, cx, cy = self.chunksize
-            assert cx == cy, "warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size".format(cx, cy)
+            assert cx == cy, "warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size (eg. cx)".format(cx, cy)
             steps = cx
 
         futures = []
@@ -234,7 +234,7 @@ class Delta:
 
         return temp_dir
 
-    def combine_results(self, output_dir, overwrite_existing=True, save_tiff=True):
+    def combine_results(self, output_dir, new_loc=None, overwrite_existing=True, save_tiff=True):
 
         combined_delta = None
         for r in os.listdir(output_dir):
@@ -262,7 +262,8 @@ class Delta:
             self.vprint("saving result to {}".format(self.input_data), urgency=1)
             with h5.File(self.input_data, "a") as f:
 
-                new_loc = "dff/"+self.loc.split("/")[-1]
+                if new_loc is None:
+                    new_loc = "dff/"+self.loc.split("/")[-1]
 
                 if new_loc not in f:
 
@@ -296,7 +297,11 @@ class Delta:
         # save tiff
         if save_tiff:
             import tifffile as tf
-            tiff_path = Path(self.input_data).with_suffix(f".dff.{loc}.tiff").as_posix()
+
+            if new_loc is None:
+                new_loc = "loc"
+
+            tiff_path = Path(self.input_data).with_suffix(f".dff.{new_loc}.tiff").as_posix()
             tf.imwrite(tiff_path, combined_delta)
 
 if __name__ == "__main__":
@@ -304,8 +309,10 @@ if __name__ == "__main__":
     input_file = None
     loc = None
     window=2000
+    new_loc = None
+    steps=None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:w:", ["ifolder=", "loc=", "window="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:w:n:s:", ["ifolder=", "loc=", "window=", "newloc=", "steps="])
     except getopt.GetoptError:
         print("calpack.py -i <input_file>")
         sys.exit(2)
@@ -320,6 +327,12 @@ if __name__ == "__main__":
         if opt in ("-w", "--window"):
             window = int(arg)
 
+        if opt in ("-n", "--newloc"):
+            new_loc = arg
+
+        if opt in ("-s", "--steps"):
+            steps = int(arg)
+
 
     d = Delta(input_file, loc=loc, verbose=5)
-    d.run(window=window)
+    d.run(window=window, new_loc=new_loc, steps=steps)
