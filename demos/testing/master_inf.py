@@ -111,7 +111,7 @@ if __name__ == "__main__":
                         cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(z0, z1))
 
                 else:
-                    Inference(input_file=input_, model="/proj/nobackup/herlenius_aldh1l1/ast_model.h5", loc=loc)
+                    Inference(input_file=input_, model="/proj/aldh1l1_big/private/ast_model.h5", loc=loc)
         else:
             print("*MASTER* INF found!")
 
