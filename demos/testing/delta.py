@@ -301,7 +301,7 @@ class Delta:
             if new_loc is None:
                 new_loc = "loc"
 
-            tiff_path = Path(self.input_data).with_suffix(f".dff.{new_loc}.tiff").as_posix()
+            tiff_path = Path(self.input_data).with_suffix(".{}.tiff".format(new_loc.replace("/", "."))).as_posix()
             tf.imwrite(tiff_path, combined_delta)
 
 if __name__ == "__main__":
