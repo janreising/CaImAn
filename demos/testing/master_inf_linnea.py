@@ -42,18 +42,22 @@ if __name__ == "__main__":
     # GET INPUT
     input_ = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:r:", ["input=", "local=", "resize="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:r:d", ["input=", "local=", "resize=", "data="])
     except getopt.GetoptError:
         print("master_inf.py -i <input> -l <local> -r <resize>")
         sys.exit(2)
 
     on_server = True
+    data_loc = "data"
     for opt, arg in opts:
         if opt in ("-i", "--input"):
             input_ = arg
 
         if opt in ("-l", "--local"):
             on_server = False
+
+        if opt in ("-d", "--data"):
+            data_loc = arg
 
     ############
     # Processing
@@ -73,7 +77,7 @@ if __name__ == "__main__":
         keys = get_keys(input_)
         print(f"pre mc keys: {keys}")
         missing_mcs = [key for key in keys if
-                       (key.startswith("data/") and key.replace("data/", "mc/") not in keys)]
+                       (key.startswith(f"{data_loc}/") and key.replace(f"{data_loc}/", "mc/") not in keys)]
 
         delete_temp_files = True
         frames_per_file = 500
