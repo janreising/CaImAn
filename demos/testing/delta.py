@@ -14,6 +14,7 @@ import getopt
 import sys
 import time
 from dask.diagnostics import ProgressBar
+import warnings
 
 @deprecated(reason="slow initial implementation")
 def calculate_background(trace, window):
@@ -80,12 +81,13 @@ def calculate_background_even_faster(trace, window):
 
 class Delta:
 
-    def __init__(self, input_data, loc=None, verbose=0):
+    def __init__(self, input_data, loc=None, overwrite_first_frame=False, verbose=0):
 
         self.input_data = input_data
         self.loc = loc
         self.verbose = verbose
         self.chunksize = None
+        self.overwrite_first_frame = overwrite_first_frame
 
         # Get data size
         if input_data.endswith(".h5"):
@@ -197,6 +199,9 @@ class Delta:
                 elif method == 'dFF':
                      res[:, x, y] = np.divide(data[:, x, y] - background, background)
 
+                if self.overwrite_first_frame:
+                    res[0, x, y] = res[1, x, y]
+
         np.save(save_path, res)
 
         self.vprint("Finished range: {}-{} x {}-{}".format(x0, x1, y0, y1), urgency=2)
@@ -214,7 +219,8 @@ class Delta:
         # get steps
         if steps is None:
             _, cx, cy = self.chunksize
-            assert cx == cy, "warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size (eg. cx)".format(cx, cy)
+            if cx != cy:
+                warnings.warn("warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size (eg. cx)".format(cx, cy))
             steps = cx
 
         futures = []
@@ -334,5 +340,5 @@ if __name__ == "__main__":
             steps = int(arg)
 
 
-    d = Delta(input_file, loc=loc, verbose=5)
+    d = Delta(input_file, loc=loc, overwrite_first_frame=False, verbose=5)
     d.run(window=window, new_loc=new_loc, steps=steps)
