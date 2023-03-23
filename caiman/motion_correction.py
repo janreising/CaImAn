@@ -249,6 +249,7 @@ class MotionCorrect(object):
                         break
                 self.min_mov = mi
             else:
+
                 self.min_mov = np.array([high_pass_filter_space(m_, self.gSig_filt)
                     for m_ in cm.load(self.fname[0], var_name_hdf5=self.var_name_hdf5,
                                       subindices=slice(400))]).min()

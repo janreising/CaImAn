@@ -19,7 +19,7 @@ from pbullet import Comm
 import warnings
 warnings.filterwarnings("ignore")
 
-def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
+def main(path, loc, dview, n_processes, save_tiff=False, indices=None, delete_temp_files=True):
 
     print("Path: ", path)
     print("Loc: ", loc)
@@ -31,7 +31,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
 
     base_name = path.split(os.sep)[-1].replace(".zip.h5", "") + "_"
     mmap_name = save_memmap_h5(path, base_name=base_name, var_name_hdf5=loc,
-                               order='C', slices=(indices, None, None))
+                               order='C',
+                               slices=(indices, None, None))
 
     Yr, dims, T = cm.load_memmap(mmap_name)
     images = Yr.T.reshape((T,) + dims, order='C') # TODO can we get away with reshaping while we are saving?
@@ -154,8 +155,8 @@ def main(path, loc, dview, n_processes, save_tiff=False, indices=None):
     finally:
 
         # cleanup
-        os.remove(mmap_name)
-
+        if delete_temp_files:
+            os.remove(mmap_name)
 
 def get_reconstructed(estimates, imgs, include_bck=True):
 
@@ -446,6 +447,7 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
 
         data = file[var_name_hdf5]
         Z, X, Y = data.shape
+        # Z, Y, X = data.shape
         cz, cx, cy = data.chunks
 
         # indice selection
@@ -477,8 +479,33 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
         fname_tot = "{}{}_d1_{}_d2_{}_d3_{}_order_{}_frames_{}_.mmap".format(root, base_name, Xlen, Ylen, 1,
                                                                              order, Zlen)
 
-        out = np.memmap(fname_tot, dtype=np.float32, mode="w+", shape=(Xlen * Ylen, Zlen))
+        # order = "C" if order == "F" else "F"  # I have no clue why I have to switch them!?!?
+        out = np.memmap(fname_tot, dtype=np.float32, order=order, mode="w+", shape=(Xlen * Ylen, Zlen))
+        # out = np.memmap(fname_tot, dtype=np.float32, order="C", mode="w+", shape=(Xlen * Ylen, Zlen))
 
+        # thick_chunk = np.zeros((cz, Xlen, Ylen), dtype=np.float32)
+        for z0 in tqdm(range(slz0, Z, cz)):
+
+            z1 = min(Z, z0 + cz)
+            # thick_chunk[0:z1-z0, :, :] = data[z0:z1, :, :]
+            thick_chunk = data[z0:z1, :, :]
+            thick_chunk = np.rollaxis(thick_chunk, 0, 3)
+            print(f"chunk {z0} loaded!, ", type(thick_chunk), thick_chunk.shape, type(data))
+
+            thick_chunk = np.reshape(thick_chunk,
+                                       (thick_chunk.shape[0]*thick_chunk.shape[1], thick_chunk.shape[2]),
+                                       order=order)
+            print(f"reshaped to: {thick_chunk.shape}")
+
+            out[:, z0:z1] = thick_chunk + np.float32(0.0001)
+
+            # for iz in tqdm(range(z1-z0)):
+            #     reshaped = np.reshape(thick_chunk[iz, :, :], thick_chunk[iz, :, :].size, order=order)
+            #     out[:, z0+iz] = reshaped
+
+            sys.stdout.flush()
+
+        """
         for z0 in tqdm(range(slz0, Z, cz)):
             for x0 in range(slx0, X, cx):
                 for y0 in range(sly0, Y, cy):
@@ -488,21 +515,59 @@ def save_memmap_h5(filenames, base_name='Yr', order: str = 'F', var_name_hdf5: s
                     y1 = min(Y, y0 + cy)
 
                     chunk = data[z0:z1, x0:x1, y0:y1]
-
                     chz, chx, chy = chunk.shape
 
-                    for a0 in range(chz):
-                        for c0 in range(chy):  # TODO change to cy (cx?); otherwise image is rotated and horizontally mirrored
+                    for frame_idx in range(chz):
 
-                            col_section = chunk[a0, :, c0]
+                        frame_offset = int((z0-slz0) + frame_idx)
+                        frame = chunk[frame_idx, :, :]
 
-                            ind0 = int(x0 / cx * cx + y0 * Xlen + c0 * Xlen)
-                            ind1 = ind0 + chx
+                        print(f"x0:x1 {x0}:{x1}, y0:y1 {y0}:{y1}, {frame.shape}")
 
-                            indx0 = int((z0-slz0) / cz * cz + a0)
-                            out[ind0:ind1, indx0] = col_section + np.float32(0.0001)
+                        if order == "C":
+
+                            for iy in range(frame.shape[1]):
+
+                                try:
+                                    # print(frame[:, iy].shape)
+                                    # print(out[x0+iy*Y:x1+iy*Y, frame_offset].shape)
+
+                                    left, right = x0+(y0+iy)*Y, x1+(y0+iy)*Y
+                                    print(f"\t{left}:{right}")
+
+                                    out[left:right, frame_offset] = frame[:, iy]
+                                except IndexError:
+                                    print(f"IndexError: iy:{iy}, z0:x0:y0 {z0}:{x0}:{y0}", iy)
 
                     sys.stdout.flush()
+                    break
+                break
+                # break
+
+                                    # if order == "F":
+                    #     for a0 in range(chz):
+                    #         for c0 in range(chy):  # TODO change to cy (cx?); otherwise image is rotated and horizontally mirrored
+                    #
+                    #             col_section = chunk[a0, :, c0]
+                    #
+                    #             ind0 = int(x0 / cx * cx + y0 * Xlen + c0 * Xlen)
+                    #             ind1 = ind0 + chx
+                    #
+                    #             indx0 = int((z0-slz0) / cz * cz + a0)
+                    #             out[ind0:ind1, indx0] = col_section + np.float32(0.0001)
+                    #
+                    # elif order == "C":
+                    #     for a0 in range(chz):
+                    #         for c0 in range(chx):
+                    #
+                    #             row_section = chunk[a0, c0, :]
+                    #
+                    #             ind0 = int(y0 / cy * cy + x0 * Ylen + c0 * Ylen)
+                    #             ind1 = ind0 + chy
+                    #
+                    #             indx0 = int((z0-slz0) / cz * cz + a0)
+                    #             out[ind0:ind1, indx0] = row_section + np.float32(0.0001)
+            """
 
     return fname_tot
 

@@ -1,3 +1,4 @@
+import logging
 import os, sys, psutil, shutil
 # print(os.environ["PYTHONPATH"])
 # print(os.environ["VIRTUAL_ENV"])
@@ -102,11 +103,13 @@ class CMotionCorrect():
             # decide whether to split files dependent on available RAM
             # file_size = os.stat(self.path).st_size
             if frames_per_file is None:
+
                 with h5.File(self.path, "r") as file:
                     data = file[f"{self.loc_in}{loc}"]
                     z, x, y = data.shape
                     byte_num = np.dtype(data.dtype).itemsize
                     array_size = z * x * y * byte_num
+
                 ram_size = psutil.virtual_memory().total
                 if self.verbose > 0:
                     print("{:.2f}GB : {:.2f}GB ({:.2f}%)".format(array_size / 1000 / 1024 / 1024,
@@ -121,7 +124,12 @@ class CMotionCorrect():
                     # since we are not splitting we need to manually
                     # save the dimensions for the next steps
                     with h5.File(self.path, "r") as file:
-                        self.dimensions.append(file[f"{self.loc_in}{loc}"].shape)
+
+                        Z, X, Y = file[f"{self.loc_in}{loc}"].shape
+                        # self.dimensions.append((Z, Y, X))
+                        self.dimensions.append((Z, X, Y))
+                        #TODO FIX HERE
+
                     self.files.append(self.path)
             else:
                 self.split_h5_file(loc, frames_per_file=frames_per_file)
@@ -158,6 +166,7 @@ class CMotionCorrect():
                 }
 
                 opts = volparams(params_dict=opts_dict)
+                print("\t***opts: ", opts.get_group('motion'))
 
                 ###################
                 # Motion Correction
@@ -201,6 +210,10 @@ class CMotionCorrect():
 
                 if len(self.files) > 0:
                     for file in self.files:
+
+                        if file.endswith(".h5"):
+                            continue
+
                         print(f"Removing {file}")
                         try:
                             os.remove(file)
@@ -389,8 +402,20 @@ class CMotionCorrect():
             for mmap, dim in self.dtqdm(zip(self.mmaps, self.dimensions)):
                 _z, _x, _y = dim
                 stop = start + _z
-                mm = np.memmap(mmap, shape=dim, dtype=np.float32)
-                data[start:stop, :, :] = mm
+
+                # if "_order_F_" in mmap:
+                #     order = "F"
+                # elif "_order_C_" in mmap:
+                #     order = "C"
+                # else:
+                #     logging.WARNING("cannot infere mmap order. assuming 'C'")
+                #     order = "C"
+                order = "C"
+
+                # TODO fix here
+                load_dim = (_z, _y, _x)
+                mm = np.memmap(mmap, shape=load_dim, dtype=np.float32, order=order)
+                data[start:stop, :, :] = np.swapaxes(mm, 1, 2)
 
                 start = stop
 

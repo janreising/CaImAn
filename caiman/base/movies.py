@@ -1675,7 +1675,7 @@ def load(file_name: Union[str, List[str]],
                 with h5py.File(file_name, "r") as f:
                     fkeys = list(f.keys())
                     if len(fkeys) == 1:
-                        var_name_hdf5 = fkeys[0]
+                        var_name_hdf5 = fkeys[0] if var_name_hdf5 is None else var_name_hdf5
 
                     if extension == '.nwb':
                         try:
@@ -1686,6 +1686,7 @@ def load(file_name: Union[str, List[str]],
                         fgroup = f[var_name_hdf5]
 
                     if var_name_hdf5 in f or var_name_hdf5 in f['acquisition']:
+
                         if subindices is None:
                             images = np.array(fgroup).squeeze()
                             #if images.ndim > 3:

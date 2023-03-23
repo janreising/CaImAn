@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
     # prepare resizing
     apply_resize=False
-    if preprop["resize"] is not None or preprop["resize"] == 1:
+    if not (preprop["resize"] is None or preprop["resize"] == 1):
 
         print("Resizing ...")
         R = preprop["resize"]

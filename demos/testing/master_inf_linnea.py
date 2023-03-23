@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # GET INPUT
     input_ = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "i:l:r:d", ["input=", "local=", "resize=", "data="])
+        opts, args = getopt.getopt(sys.argv[1:], "i:l:r:d:", ["input=", "local=", "resize=", "data="])
     except getopt.GetoptError:
         print("master_inf.py -i <input> -l <local> -r <resize>")
         sys.exit(2)
@@ -58,6 +58,7 @@ if __name__ == "__main__":
 
         if opt in ("-d", "--data"):
             data_loc = arg
+            print(f"data_loc: {data_loc}")
 
     ############
     # Processing
@@ -72,20 +73,22 @@ if __name__ == "__main__":
     c, dview, n_processes = cm.cluster.setup_cluster(backend='local', n_processes=num_proc,  single_thread=False)
 
     try:
+        
         ####################
         # Motion Correction
         keys = get_keys(input_)
         print(f"pre mc keys: {keys}")
         missing_mcs = [key for key in keys if
                        (key.startswith(f"{data_loc}/") and key.replace(f"{data_loc}/", "mc/") not in keys)]
+        print(f"missing mc keys: {missing_mcs}")
 
-        delete_temp_files = True
-        frames_per_file = 500
-        ram_size_multiplier = None
+        delete_temp_files = True #True
+        frames_per_file = None #500
+        ram_size_multiplier = 50 #None
         if len(missing_mcs) > 0:
             print(f"*MASTER* motion correction")
-            mc = CMotionCorrect(path=input_, verbose=3, delete_temp_files=delete_temp_files, on_server=on_server,
-                                dview=dview)
+            mc = CMotionCorrect(path=input_, loc_in=f"{data_loc}/", verbose=3, delete_temp_files=delete_temp_files, on_server=on_server,
+                                dview=dview,)
             mc.run_motion_correction(ram_size_multiplier=ram_size_multiplier, frames_per_file=frames_per_file)
         else:
             print(f"*MASTER* motion correction found!")
@@ -110,12 +113,21 @@ if __name__ == "__main__":
                         data = file[loc]
                         z, x, y = data.shape
 
-                    steps = 400
-                    for z0 in range(0, z, steps):
-                        z1 = min(z, z0+steps)
-                        print(f"*MASTER* CNMFE processing indices {z0}:{z1} for loc {loc}")
+                    steps = None #400
 
-                        cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(z0, z1))
+                    if steps is None:
+
+                        cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=None,
+                                   save_tiff=False, delete_temp_files=True)
+                        # cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(0, z))
+
+                    else:
+
+                        for z0 in range(0, z, steps):
+                            z1 = min(z, z0+steps)
+                            print(f"*MASTER* CNMFE processing indices {z0}:{z1} for loc {loc}")
+
+                            cnmfe.main(path=input_, loc=loc, dview=dview, n_processes=n_processes, indices=slice(z0, z1))
 
         else:
             print("*MASTER* INF found!")
@@ -131,6 +143,9 @@ if __name__ == "__main__":
 
         missing_dFF = missing_dFF_inf + missing_dFF_cnmfe
 
+        # missing_dFF = [key for key in keys if
+        #                (key.startswith(f"{data_loc}/") and key.replace(f"{data_loc}/", "mc/") not in keys)]
+
         print(f"pre dFF keys: {missing_dFF}")
         if len(missing_dFF) > 0:
             t0 = time.time()
@@ -138,7 +153,7 @@ if __name__ == "__main__":
 
                 # TODO read json here
                 d = delta.Delta(input_, loc=loc, verbose=2)
-                d.run(window=2000, steps=None, method='dF')
+                d.run(window=50, steps=None, method='dF')
 
                 # #method='only_baseline','delta_f_over_f','delta_f_over_sqrt_f'
                 # dff.calculate_dFF(input_, loc, method="delta_f_over_sqrt_f")

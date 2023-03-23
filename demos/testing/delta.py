@@ -107,18 +107,18 @@ class Delta:
             self.Z, self.X, self.Y = None, None, None
             print("Unknown input data type: {}".format(input_data))
 
-    def run(self, window=2000, steps=None, method='dF', new_loc=None):
+    def run(self, window=2000, steps=None, method='dF', new_loc=None, delete_tiledb=None):
 
         t0 = time.time()
 
         # convert to tiledb if necessary
         if self.input_data.endswith(".h5"):
             tileDBpath = self.save_h5_to_tiledb(self.input_data, loc=self.loc)
-            delete_tiledb = True
+            delete_tiledb = True if delete_tiledb else delete_tiledb
 
         elif self.input_data.endswith(".tdb"):
             tileDBpath = self.input_data
-            delete_tiledb = False
+            delete_tiledb = False if delete_tiledb else delete_tiledb
 
         else:
             self.vprint("unknown data type. Aborting!", urgency=0)
@@ -219,19 +219,21 @@ class Delta:
         # get steps
         if steps is None:
             _, cx, cy = self.chunksize
-            if cx != cy:
-                warnings.warn("warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size (eg. cx)".format(cx, cy))
-            steps = cx
+            # if cx != cy:
+            #     warnings.warn("warning: chunksize is not equal ({}, {}) which will lead to inefficiency. Please provide a manual step size (eg. cx)".format(cx, cy))
+            steps_x, steps_y = (cx, cy)
+        else:
+            steps_x, steps_y = steps
 
         futures = []
         with ProgressBar():
             with LocalCluster() as lc:
                 with Client(lc) as client:
-                    for x in range(0, self.X, steps):
-                        for y in range(0, self.Y, steps):
+                    for x in range(0, self.X, steps_x):
+                        for y in range(0, self.Y, steps_y):
                             futures.append(
                                 client.submit(self.calculate_delta, #self,
-                                              tileDBpath, [x, int(x+steps), y, int(y+steps)], window, temp_dir, method
+                                              tileDBpath, [x, int(x+steps_x), y, int(y+steps_y)], window, temp_dir, method
                                                          )
                     )
 
